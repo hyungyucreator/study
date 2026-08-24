@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### 2026-08-25 — 로컬 개발 서버 기동 불가 해결
+
+- **`dev` 스크립트를 `next dev -H ::1`로 고정.** *이유: 개발 PC의 Winsock IPv4 바인딩이 손상돼 새 프로세스가 IPv4 소켓을 열 수 없음(포트 무관, Node·.NET 모두 WSAEFAULT, IPv6는 정상, 기존 리스너 39개는 멀쩡, 아웃바운드 연결도 정상). Next·프로젝트 코드 문제가 아니며 IPv6 루프백 바인딩으로 우회. Windows가 localhost를 ::1로 해석하므로 `http://localhost:3000` 접속은 그대로 동작.*
+- 원인 후보였던 DLL 주입(KOSinj 등)은 배제 — `node.exe`에 주입된 비시스템 DLL이 없음. 근본 해결책은 `netsh winsock reset` + 재부팅이며, README에 기록.
+
 ### 2026-08-24 — 2단계: KIS 연동 (토큰 → 잔고조회 → holdings 동기화)
 
 - **KIS 토큰 캐시를 DB 테이블로 (`0002_kis_token.sql`)** — RLS를 켜되 정책을 만들지 않아 service_role만 접근 가능. *이유: ARCHITECTURE §7이 토큰 캐시를 요구하는데 서버리스는 인스턴스 메모리가 유지되지 않아 매 요청 재발급 위험이 있고(KIS는 1분 1회 제한), 이 토큰은 주문 권한까지 가진 자격증명이라 브라우저 세션으로 읽히면 안 됨.*
