@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { isAssetClass, isCurrency } from "@/lib/assets";
+import { canSyncKis } from "@/lib/kis/env";
+import { syncKisHoldings } from "@/lib/kis/sync";
 import { createClient } from "@/lib/supabase/server";
 
 export type FormState = { error?: string };
@@ -135,4 +137,37 @@ export async function deleteHolding(formData: FormData) {
 
   revalidatePath("/holdings");
   redirect("/holdings");
+}
+
+export type SyncState = { message?: string; error?: string };
+
+/** KIS 잔고조회로 holdings를 동기화한다. 읽기 전용 API만 호출한다. */
+export async function syncFromKis(
+  _prev: SyncState,
+  _formData: FormData,
+): Promise<SyncState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "로그인이 필요하다." };
+
+  if (!canSyncKis(user.email)) {
+    return { error: "이 계정에는 연결된 KIS 계좌가 없다." };
+  }
+
+  try {
+    const { synced, removed } = await syncKisHoldings(supabase, user.id);
+    revalidatePath("/holdings");
+    return {
+      message:
+        removed > 0
+          ? `${synced}건 반영, ${removed}건 정리.`
+          : `${synced}건 반영.`,
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "동기화에 실패했다.",
+    };
+  }
 }

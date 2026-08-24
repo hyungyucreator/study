@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { createHolding } from "./actions";
 import { HoldingForm } from "./holding-form";
+import { KisSyncButton } from "./kis-sync-button";
 
 export const metadata = { title: "보유자산 — 투자 데스크" };
 
@@ -77,6 +78,9 @@ export default async function HoldingsPage() {
         <p className="mt-2 text-sm text-muted">
           평가금액과 원화 환산 총액은 시세 연동 후 표시된다.
         </p>
+        <div className="mt-6">
+          <KisSyncButton />
+        </div>
       </section>
 
       {grouped.map((group) => (
