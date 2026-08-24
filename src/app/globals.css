@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/*
+ * 디자인 토큰 — DESIGN.md §2, §3 기준.
+ * 흑백 + 수익(적)/손실(청) 2색만 사용한다. 그라데이션·기타 유채색 금지.
+ * 다크모드는 ROADMAP "추후 검토" 항목이므로 prefers-color-scheme 대응을 넣지 않는다.
+ */
+@theme {
+  --color-bg: #ffffff;
+  --color-fg: #111111;
+  --color-muted: #6b7280;
+  --color-line: #e5e7eb;
+
+  /* 국내 관습: 수익 적, 손실 청 */
+  --color-gain: #dc2626;
+  --color-loss: #2563eb;
+
+  --font-sans: var(--font-pretendard), system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+
+  /* 라운드는 8px 이하로 제한 (DESIGN.md §4) */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  /* 위계는 크기·굵기로만. 색으로 위계를 만들지 않는다. */
+  h1,
+  h2,
+  h3 {
+    line-height: 1.35;
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background-color: var(--color-fg);
+    color: var(--color-bg);
+  }
+}
+
+/*
+ * 숫자 표시에는 반드시 이 클래스를 쓴다 (DESIGN.md §3).
+ * 자릿수 정렬이 어긋나면 대시보드 가독성이 무너진다.
+ */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
