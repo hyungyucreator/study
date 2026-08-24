@@ -64,18 +64,14 @@ etf_catalog(id, layer[core|tilt], category, ticker, name, expense_ratio,
 -- 유저별 (RLS)
 users(id, ...)  -- Supabase Auth
 holdings(id, user_id, source[kis|manual], symbol, name, asset_class,
-         is_etf, bucket[core|tilt|experiment|null], qty, avg_price,
-         currency, updated_at)
-target_weights(user_id, asset_class, weight)
+         is_etf, bucket, qty, avg_price, currency, updated_at)
 symbol_map(symbol, name, asset_class, is_etf, bucket, note, updated_at)  -- 공용, 티커별 분류 사실
--- bucket = 계좌 성격. 목표 비중·리밸런싱은 core + tilt만 대상.
---   experiment(소액 개별주)는 비중 계산에서 제외하고 20% 초과 시 화면 표시.
---   null = 미지정. KIS 신규 종목은 최초 1회 사용자에게 묻고 symbol_map에 기억.
 -- asset_class = 실질 노출 기준:
 --   kr_equity | intl_equity | bond | commodity | currency | cash | other
 --   ETF는 자산군이 아니라 is_etf 플래그. (PRODUCT.md §4-C 참조)
-rebalance_orders(id, user_id, created_at, items_json, status,
-                 snapshot_json)  -- 실행 감지 시 온도 4지표 자동 기록
+-- bucket = 기본값 'core'. 화면에 노출하지 않는다 (PRODUCT.md §6에서 보류).
+-- target_weights / rebalance_orders는 스코프 축소로 제거 (0005_scope_reduction.sql).
+--   되살릴 때는 0001_init.sql의 정의를 다시 쓴다.
 trade_memos(id, user_id, holding_ref, memo_text, created_at)  -- 선택적 한 줄
 user_cards(user_id, concept_card_id, saved_at)  -- 단어장
 alerts(id, user_id, kind, payload_json, sent_at)

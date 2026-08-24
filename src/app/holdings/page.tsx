@@ -2,10 +2,7 @@ import Link from "next/link";
 
 import {
   ASSET_CLASSES,
-  BUCKETS,
   bookValue,
-  bucketLabel,
-  countsTowardAllocation,
   formatMoney,
   formatQty,
   type Currency,
@@ -13,14 +10,11 @@ import {
 } from "@/lib/assets";
 import { createClient } from "@/lib/supabase/server";
 
-import { createHolding, setBucket } from "./actions";
+import { createHolding } from "./actions";
 import { HoldingForm } from "./holding-form";
 import { KisSyncButton } from "./kis-sync-button";
 
 export const metadata = { title: "보유자산 — 투자 데스크" };
-
-/** 실험 버킷이 이 비율을 넘으면 화면에 표시한다. 차단하지 않는다. */
-const EXPERIMENT_LIMIT = 0.2;
 
 export default async function HoldingsPage() {
   const supabase = await createClient();
@@ -29,7 +23,7 @@ export default async function HoldingsPage() {
   const { data, error } = await supabase
     .from("holdings")
     .select(
-      "id, source, symbol, name, asset_class, is_etf, bucket, qty, avg_price, currency, updated_at",
+      "id, source, symbol, name, asset_class, is_etf, qty, avg_price, currency, updated_at",
     )
     .order("asset_class")
     .order("name");
@@ -44,21 +38,6 @@ export default async function HoldingsPage() {
       (totals.get(holding.currency) ?? 0) + bookValue(holding),
     );
   }
-
-  const unassigned = holdings.filter((holding) => holding.bucket === null);
-
-  // 실험 비중은 매입금액 기준. 환율이 붙기 전이라 원화 자산만으로 계산한다.
-  const krwHoldings = holdings.filter((holding) => holding.currency === "KRW");
-  const krwTotal = krwHoldings.reduce((sum, item) => sum + bookValue(item), 0);
-  const experimentTotal = krwHoldings
-    .filter((holding) => holding.bucket === "experiment")
-    .reduce((sum, item) => sum + bookValue(item), 0);
-  const experimentRatio = krwTotal > 0 ? experimentTotal / krwTotal : 0;
-  const hasForeign = holdings.some((holding) => holding.currency !== "KRW");
-
-  const allocationTotal = krwHoldings
-    .filter((holding) => countsTowardAllocation(holding.bucket))
-    .reduce((sum, item) => sum + bookValue(item), 0);
 
   const grouped = ASSET_CLASSES.map((assetClass) => ({
     ...assetClass,
@@ -104,64 +83,6 @@ export default async function HoldingsPage() {
         </div>
       </section>
 
-      {experimentRatio > EXPERIMENT_LIMIT ? (
-        <section className="mt-8 border-y border-line py-4">
-          <p className="text-[15px]">
-            실험 버킷이 전체의{" "}
-            <span className="tabular font-medium">
-              {(experimentRatio * 100).toFixed(1)}%
-            </span>
-            다. 기준선 {EXPERIMENT_LIMIT * 100}%를 넘었다.
-          </p>
-          <p className="mt-1 text-sm text-muted">
-            실험분은 목표 비중과 리밸런싱 계산에서 빠진다. 배분 대상은{" "}
-            <span className="tabular">
-              {formatMoney(allocationTotal, "KRW")}
-            </span>
-            {hasForeign ? " (원화 자산 기준)" : ""}.
-          </p>
-        </section>
-      ) : null}
-
-      {unassigned.length > 0 ? (
-        <section className="mt-10 border-t border-line pt-6">
-          <h2 className="text-lg font-semibold">버킷 지정 필요</h2>
-          <p className="mt-1 text-sm text-muted">
-            새로 들어온 종목이다. 한 번만 정하면 다음 동기화부터 기억한다.
-            코어·틸트만 목표 비중 계산에 들어간다.
-          </p>
-          <ul className="mt-4 divide-y divide-line border-y border-line">
-            {unassigned.map((holding) => (
-              <li
-                key={holding.id}
-                className="flex flex-wrap items-center justify-between gap-3 py-3"
-              >
-                <span className="text-[15px]">
-                  {holding.name}
-                  <span className="tabular ml-2 text-sm text-muted">
-                    {holding.symbol}
-                  </span>
-                </span>
-                <div className="flex gap-2">
-                  {BUCKETS.map((item) => (
-                    <form key={item.value} action={setBucket}>
-                      <input type="hidden" name="id" value={holding.id} />
-                      <input type="hidden" name="bucket" value={item.value} />
-                      <button
-                        type="submit"
-                        className="rounded-xs border border-line px-3 py-1 text-sm hover:bg-fg hover:text-bg"
-                      >
-                        {item.label}
-                      </button>
-                    </form>
-                  ))}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
       {grouped.map((group) => (
         <section key={group.value} className="mt-10">
           <h2 className="text-lg font-semibold">{group.label}</h2>
@@ -169,7 +90,6 @@ export default async function HoldingsPage() {
             <thead>
               <tr className="text-sm text-muted">
                 <th className="py-2 text-left font-normal">종목</th>
-                <th className="py-2 text-left font-normal">버킷</th>
                 <th className="py-2 text-right font-normal">수량</th>
                 <th className="py-2 text-right font-normal">평단</th>
                 <th className="py-2 text-right font-normal">매입금액</th>
@@ -190,9 +110,6 @@ export default async function HoldingsPage() {
                     {holding.source === "kis" ? (
                       <span className="ml-2 text-sm text-muted">KIS</span>
                     ) : null}
-                  </td>
-                  <td className="py-3 text-sm text-muted">
-                    {bucketLabel(holding.bucket)}
                   </td>
                   <td className="tabular py-3 text-right">
                     {formatQty(holding.qty)}

@@ -27,39 +27,6 @@ export function assetClassLabel(value: string) {
   return ASSET_CLASSES.find((item) => item.value === value)?.label ?? value;
 }
 
-/**
- * 버킷 = 계좌 성격. 목표 비중 계산은 core + tilt만 대상으로 하고,
- * experiment(소액 개별주 실험)는 비중에서 빼고 따로 본다.
- * null은 "아직 정하지 않음" — KIS에서 새로 들어온 종목은 최초 1회 물어본다.
- */
-export const BUCKETS = [
-  { value: "core", label: "코어", hint: "자산배분의 골격. 목표 비중 대상." },
-  { value: "tilt", label: "틸트", hint: "국면 판단을 표현하는 조정분. 목표 비중 대상." },
-  {
-    value: "experiment",
-    label: "실험",
-    hint: "소액 개별주 실험. 비중 계산과 리밸런싱에서 제외.",
-  },
-] as const;
-
-export type Bucket = (typeof BUCKETS)[number]["value"];
-
-const BUCKET_VALUES = BUCKETS.map((item) => item.value) as string[];
-
-export function isBucket(value: string): value is Bucket {
-  return BUCKET_VALUES.includes(value);
-}
-
-export function bucketLabel(value: string | null) {
-  if (!value) return "미지정";
-  return BUCKETS.find((item) => item.value === value)?.label ?? value;
-}
-
-/** 목표 비중·리밸런싱 대상 여부. */
-export function countsTowardAllocation(bucket: string | null) {
-  return bucket === "core" || bucket === "tilt";
-}
-
 export const CURRENCIES = [
   { value: "KRW", label: "원 (KRW)" },
   { value: "USD", label: "달러 (USD)" },
@@ -80,7 +47,6 @@ export type Holding = {
   name: string;
   asset_class: AssetClass;
   is_etf: boolean;
-  bucket: Bucket | null;
   qty: number;
   avg_price: number;
   currency: Currency;

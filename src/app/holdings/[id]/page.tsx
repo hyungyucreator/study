@@ -18,7 +18,7 @@ export default async function EditHoldingPage({
   const { data } = await supabase
     .from("holdings")
     .select(
-      "id, source, symbol, name, asset_class, is_etf, bucket, qty, avg_price, currency, updated_at",
+      "id, source, symbol, name, asset_class, is_etf, qty, avg_price, currency, updated_at",
     )
     .eq("id", id)
     .maybeSingle();

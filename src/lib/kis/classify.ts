@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { AssetClass, Bucket } from "@/lib/assets";
+import type { AssetClass } from "@/lib/assets";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -64,11 +64,7 @@ export function guessAssetClass(name: string): AssetClass {
   return "kr_equity";
 }
 
-export type SymbolInfo = {
-  asset_class: AssetClass;
-  is_etf: boolean;
-  bucket: Bucket | null;
-};
+export type SymbolInfo = { asset_class: AssetClass; is_etf: boolean };
 
 /** symbol_map에서 여러 종목을 한 번에 읽는다. */
 export async function loadSymbolMap(symbols: string[]) {
@@ -77,17 +73,13 @@ export async function loadSymbolMap(symbols: string[]) {
   const admin = createAdminClient();
   const { data } = await admin
     .from("symbol_map")
-    .select("symbol, asset_class, is_etf, bucket")
+    .select("symbol, asset_class, is_etf")
     .in("symbol", symbols);
 
   return new Map<string, SymbolInfo>(
     (data ?? []).map((row) => [
       row.symbol,
-      {
-        asset_class: row.asset_class as AssetClass,
-        is_etf: row.is_etf,
-        bucket: (row.bucket as Bucket | null) ?? null,
-      },
+      { asset_class: row.asset_class as AssetClass, is_etf: row.is_etf },
     ]),
   );
 }
@@ -101,7 +93,6 @@ export async function rememberClassification(input: {
   name: string;
   assetClass: AssetClass;
   isEtf: boolean;
-  bucket: Bucket | null;
 }) {
   const admin = createAdminClient();
   await admin.from("symbol_map").upsert({
@@ -109,15 +100,6 @@ export async function rememberClassification(input: {
     name: input.name,
     asset_class: input.assetClass,
     is_etf: input.isEtf,
-    bucket: input.bucket,
     updated_at: new Date().toISOString(),
   });
-}
-
-/** 버킷만 기억한다 (목록에서 바로 지정할 때). */
-export async function rememberBucket(symbol: string, bucket: Bucket) {
-  const admin = createAdminClient();
-  await admin
-    .from("symbol_map")
-    .upsert({ symbol, bucket, updated_at: new Date().toISOString() });
 }
