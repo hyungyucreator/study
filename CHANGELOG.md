@@ -13,6 +13,8 @@
 - **Supabase Auth (Google OAuth) + `@supabase/ssr`** — 브라우저/서버 클라이언트, `/login`, `/auth/callback`, `/auth/signout`, 세션 갱신·미인증 리다이렉트용 `src/proxy.ts`. *이유: 처음부터 유저 분리 전제(2차 지인 공유)이고, Next.js 16에서 미들웨어 파일명이 proxy로 바뀌었기 때문.*
 - **DB 스키마 `supabase/migrations/0001_init.sql`** — ARCHITECTURE §5의 공용 8개 + 유저별 6개 테이블, 전 테이블 RLS 활성화, 유저 테이블은 `auth.uid() = user_id` 4정책. 금액·수량 `numeric`, 시각 `timestamptz`, `briefings`에 일자 unique(멱등 재시도용). *이유: RLS를 나중에 붙이면 누락이 생기므로 스키마 생성과 동시에 적용.*
 - **`profiles` 테이블 추가** (ARCHITECTURE의 `users(id, ...)` 구현). `auth.users`에 컬럼을 붙일 수 없어 1:1 테이블 + 가입 트리거로 대체. *이유: Supabase 표준 방식이며 스키마 설계 변경이 아님.*
+- **Vercel 배포 완료** — https://study-phi-ten.vercel.app (GitHub: hyungyucreator/study, main 브랜치 자동 배포). 외부 점검 결과 `/` → 307 → `/login` 인증 가드 동작, Pretendard woff2가 `immutable` 캐시로 서빙됨. *이유: 1단계 완료 기준에 배포 파이프라인 동작 확인이 포함되므로.*
+- **OAuth 콜백 에러 처리 수정** — 실패 시 오는 `error`/`error_description`을 그대로 로그인 화면에 표시하도록 변경(이전에는 전부 "인증 코드가 없다"로 뭉갬). *이유: 테스트 사용자 미등록(`access_denied`) 같은 실제 원인이 감춰져 디버깅이 불가능했음.*
 - **Vercel 배포 준비** — `vercel.json`(framework nextjs, region icn1), `.env.example`, README 실행 절차. *이유: 서울 리전이 KIS·국내 데이터 소스와 가깝고 지연이 작음.*
 
 ### 2026-08-24

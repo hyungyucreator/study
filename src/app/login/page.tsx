@@ -5,9 +5,16 @@ import { getUser } from "@/lib/supabase/server";
 import { GoogleSignInButton } from "./google-sign-in-button";
 
 const ERROR_MESSAGES: Record<string, string> = {
+  access_denied:
+    "이 계정은 아직 허용되지 않았다. Google Cloud 인증 플랫폼의 테스트 사용자에 등록된 계정으로 로그인할 것.",
+  server_error: "구글 인증 서버가 요청을 거절했다. 잠시 후 다시 시도할 것.",
   missing_code: "인증 코드가 없다. 다시 로그인할 것.",
   exchange_failed: "세션 교환에 실패했다. 다시 로그인할 것.",
 };
+
+function first(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const user = await getUser();
@@ -15,8 +22,12 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     redirect("/");
   }
 
-  const { error } = await searchParams;
-  const message = typeof error === "string" ? ERROR_MESSAGES[error] : undefined;
+  const params = await searchParams;
+  const error = first(params.error);
+  const detail = first(params.detail);
+  const message = error
+    ? (ERROR_MESSAGES[error] ?? `로그인에 실패했다. (${error})`)
+    : undefined;
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-16">
@@ -29,7 +40,12 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         <GoogleSignInButton />
       </div>
 
-      {message ? <p className="mt-4 text-sm text-muted">{message}</p> : null}
+      {message ? (
+        <div className="mt-6 border-t border-line pt-4">
+          <p className="text-sm">{message}</p>
+          {detail ? <p className="mt-1 text-sm text-muted">{detail}</p> : null}
+        </div>
+      ) : null}
     </main>
   );
 }
