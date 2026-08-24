@@ -23,7 +23,7 @@ export default async function HoldingsPage() {
   const { data, error } = await supabase
     .from("holdings")
     .select(
-      "id, source, symbol, name, asset_class, qty, avg_price, currency, updated_at",
+      "id, source, symbol, name, asset_class, is_etf, qty, avg_price, currency, updated_at",
     )
     .order("asset_class")
     .order("name");
@@ -104,6 +104,9 @@ export default async function HoldingsPage() {
                     <span className="tabular ml-2 text-sm text-muted">
                       {holding.symbol}
                     </span>
+                    {holding.is_etf ? (
+                      <span className="ml-2 text-sm text-muted">ETF</span>
+                    ) : null}
                     {holding.source === "kis" ? (
                       <span className="ml-2 text-sm text-muted">KIS</span>
                     ) : null}

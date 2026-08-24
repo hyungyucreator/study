@@ -64,8 +64,12 @@ etf_catalog(id, layer[core|tilt], category, ticker, name, expense_ratio,
 -- 유저별 (RLS)
 users(id, ...)  -- Supabase Auth
 holdings(id, user_id, source[kis|manual], symbol, name, asset_class,
-         qty, avg_price, updated_at)
+         is_etf, qty, avg_price, currency, updated_at)
 target_weights(user_id, asset_class, weight)
+symbol_map(symbol, name, asset_class, is_etf, note, updated_at)  -- 공용, 티커별 분류 사실
+-- asset_class = 실질 노출 기준:
+--   kr_equity | intl_equity | bond | commodity | currency | cash | other
+--   ETF는 자산군이 아니라 is_etf 플래그. (PRODUCT.md §4-C 참조)
 rebalance_orders(id, user_id, created_at, items_json, status,
                  snapshot_json)  -- 실행 감지 시 온도 4지표 자동 기록
 trade_memos(id, user_id, holding_ref, memo_text, created_at)  -- 선택적 한 줄
@@ -89,3 +93,4 @@ alerts(id, user_id, kind, payload_json, sent_at)
 
 - KIS 앱키/시크릿, Anthropic API 키 등은 전부 서버 환경변수. 클라이언트 노출 절대 금지.
 - KIS 토큰은 발급 후 캐시(유효기간 관리), 매 요청 재발급 금지.
+  - 캐시 위치는 `kis_token` 테이블. RLS를 켜되 정책을 만들지 않아 service_role만 접근한다 (이 토큰은 주문 권한까지 가진 자격증명이므로 브라우저 세션에 노출되면 안 된다). 서버리스는 인스턴스 메모리가 유지되지 않아 메모리 캐시로는 KIS의 1분 1회 재발급 제한에 걸린다.

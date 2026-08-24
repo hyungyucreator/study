@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { isAssetClass, isCurrency } from "@/lib/assets";
+import { rememberClassification } from "@/lib/kis/classify";
 import { canSyncKis } from "@/lib/kis/env";
 import { syncKisHoldings } from "@/lib/kis/sync";
 import { createClient } from "@/lib/supabase/server";
@@ -14,6 +15,7 @@ type ParsedHolding = {
   symbol: string;
   name: string;
   asset_class: string;
+  is_etf: boolean;
   qty: number;
   avg_price: number;
   currency: string;
@@ -55,6 +57,7 @@ function parse(formData: FormData): ParsedHolding | string {
     symbol,
     name,
     asset_class: assetClass,
+    is_etf: formData.get("is_etf") === "on",
     qty,
     avg_price: avgPrice,
     currency,
@@ -85,6 +88,13 @@ export async function createHolding(
     }
     return { error: `저장 실패: ${error.message}` };
   }
+
+  await rememberClassification({
+    symbol: parsed.symbol,
+    name: parsed.name,
+    assetClass: parsed.asset_class as never,
+    isEtf: parsed.is_etf,
+  });
 
   revalidatePath("/holdings");
   return {};
@@ -118,6 +128,14 @@ export async function updateHolding(
     }
     return { error: `저장 실패: ${error.message}` };
   }
+
+  // 사용자가 고친 분류를 사실 테이블에 남긴다. 다음 동기화부터 이 값이 쓰인다.
+  await rememberClassification({
+    symbol: parsed.symbol,
+    name: parsed.name,
+    assetClass: parsed.asset_class as never,
+    isEtf: parsed.is_etf,
+  });
 
   revalidatePath("/holdings");
   redirect("/holdings");

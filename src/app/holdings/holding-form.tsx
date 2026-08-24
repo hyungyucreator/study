@@ -69,6 +69,18 @@ export function HoldingForm({ action, holding, submitLabel }: Props) {
         </label>
       </div>
 
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="is_etf"
+          defaultChecked={holding?.is_etf ?? false}
+          className="size-4 accent-[var(--color-fg)]"
+        />
+        <span className="text-sm text-muted">
+          ETF (자산군은 실질 노출 기준으로 고른다. 예: 미국채 ETF는 채권)
+        </span>
+      </label>
+
       <div className="grid grid-cols-2 gap-4">
         <label className="block">
           <span className="text-sm text-muted">종목코드</span>

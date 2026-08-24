@@ -1,11 +1,16 @@
-/** 자산군·통화 정의와 표시 포맷. DB CHECK 제약(0001_init.sql)과 값이 일치해야 한다. */
+/**
+ * 자산군은 "상품 형태"가 아니라 "실질 노출" 기준이다 (0003_asset_class_exposure.sql).
+ * 금 ETF는 원자재, 미국채 ETF는 채권, S&P500 ETF는 해외주식으로 분류한다.
+ * ETF 여부는 자산군이 아니라 is_etf 플래그로 표시한다.
+ * DB CHECK 제약과 값이 일치해야 한다.
+ */
 
 export const ASSET_CLASSES = [
   { value: "kr_equity", label: "국내주식" },
   { value: "intl_equity", label: "해외주식" },
-  { value: "etf", label: "ETF" },
   { value: "bond", label: "채권" },
   { value: "commodity", label: "원자재" },
+  { value: "currency", label: "통화" },
   { value: "cash", label: "현금" },
   { value: "other", label: "기타" },
 ] as const;
@@ -41,6 +46,7 @@ export type Holding = {
   symbol: string;
   name: string;
   asset_class: AssetClass;
+  is_etf: boolean;
   qty: number;
   avg_price: number;
   currency: Currency;
