@@ -53,6 +53,8 @@ create table if not exists public.symbol_map (
 
 alter table public.symbol_map enable row level security;
 
+-- 재실행 가능하게 한다. create policy는 IF NOT EXISTS를 지원하지 않는다.
+drop policy if exists "symbol_map_read" on public.symbol_map;
 create policy "symbol_map_read" on public.symbol_map
   for select to authenticated using (true);
 
