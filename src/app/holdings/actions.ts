@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { isAssetClass, isCurrency } from "@/lib/assets";
-import { rememberClassification } from "@/lib/kis/classify";
+import { isAssetClass, isBucket, isCurrency, type Bucket } from "@/lib/assets";
+import { rememberBucket, rememberClassification } from "@/lib/kis/classify";
 import { canSyncKis } from "@/lib/kis/env";
 import { syncKisHoldings } from "@/lib/kis/sync";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +16,7 @@ type ParsedHolding = {
   name: string;
   asset_class: string;
   is_etf: boolean;
+  bucket: Bucket;
   qty: number;
   avg_price: number;
   currency: string;
@@ -35,6 +36,7 @@ function parse(formData: FormData): ParsedHolding | string {
     .toUpperCase();
   const name = String(formData.get("name") ?? "").trim();
   const assetClass = String(formData.get("asset_class") ?? "");
+  const bucket = String(formData.get("bucket") ?? "");
   const currency = String(formData.get("currency") ?? "");
   const qty = parseNumber(formData.get("qty"));
   const isCash = assetClass === "cash";
@@ -48,6 +50,7 @@ function parse(formData: FormData): ParsedHolding | string {
   if (!symbol) return "종목코드를 입력할 것.";
   if (!name) return "종목명을 입력할 것.";
   if (!isAssetClass(assetClass)) return "자산군을 선택할 것.";
+  if (!isBucket(bucket)) return "버킷(코어/틸트/실험)을 선택할 것.";
   if (!isCurrency(currency)) return "통화를 선택할 것.";
   if (!Number.isFinite(qty) || qty <= 0) return "수량은 0보다 커야 한다.";
   if (!Number.isFinite(avgPrice) || avgPrice < 0)
@@ -58,6 +61,7 @@ function parse(formData: FormData): ParsedHolding | string {
     name,
     asset_class: assetClass,
     is_etf: formData.get("is_etf") === "on",
+    bucket,
     qty,
     avg_price: avgPrice,
     currency,
@@ -94,6 +98,7 @@ export async function createHolding(
     name: parsed.name,
     assetClass: parsed.asset_class as never,
     isEtf: parsed.is_etf,
+    bucket: parsed.bucket,
   });
 
   revalidatePath("/holdings");
@@ -135,6 +140,7 @@ export async function updateHolding(
     name: parsed.name,
     assetClass: parsed.asset_class as never,
     isEtf: parsed.is_etf,
+    bucket: parsed.bucket,
   });
 
   revalidatePath("/holdings");
@@ -188,4 +194,34 @@ export async function syncFromKis(
       error: error instanceof Error ? error.message : "동기화에 실패했다.",
     };
   }
+}
+
+/**
+ * 목록에서 버킷만 지정한다 (KIS로 들어온 새 종목의 최초 1회 분류).
+ * 지정값은 symbol_map에 기억돼 다음 동기화부터 자동 적용된다.
+ */
+export async function setBucket(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const bucket = String(formData.get("bucket") ?? "");
+  if (!id || !isBucket(bucket)) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: updated } = await supabase
+    .from("holdings")
+    .update({ bucket, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("symbol")
+    .maybeSingle();
+
+  if (updated?.symbol) {
+    await rememberBucket(updated.symbol, bucket);
+  }
+
+  revalidatePath("/holdings");
 }

@@ -64,9 +64,13 @@ etf_catalog(id, layer[core|tilt], category, ticker, name, expense_ratio,
 -- 유저별 (RLS)
 users(id, ...)  -- Supabase Auth
 holdings(id, user_id, source[kis|manual], symbol, name, asset_class,
-         is_etf, qty, avg_price, currency, updated_at)
+         is_etf, bucket[core|tilt|experiment|null], qty, avg_price,
+         currency, updated_at)
 target_weights(user_id, asset_class, weight)
-symbol_map(symbol, name, asset_class, is_etf, note, updated_at)  -- 공용, 티커별 분류 사실
+symbol_map(symbol, name, asset_class, is_etf, bucket, note, updated_at)  -- 공용, 티커별 분류 사실
+-- bucket = 계좌 성격. 목표 비중·리밸런싱은 core + tilt만 대상.
+--   experiment(소액 개별주)는 비중 계산에서 제외하고 20% 초과 시 화면 표시.
+--   null = 미지정. KIS 신규 종목은 최초 1회 사용자에게 묻고 symbol_map에 기억.
 -- asset_class = 실질 노출 기준:
 --   kr_equity | intl_equity | bond | commodity | currency | cash | other
 --   ETF는 자산군이 아니라 is_etf 플래그. (PRODUCT.md §4-C 참조)

@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { AssetClass } from "@/lib/assets";
+import type { AssetClass, Bucket } from "@/lib/assets";
 
 import { fetchBalance } from "./balance";
 import { guessAssetClass, isEtfName, loadSymbolMap } from "./classify";
@@ -19,6 +19,7 @@ type Row = {
   name: string;
   asset_class: AssetClass;
   is_etf: boolean;
+  bucket: Bucket | null;
   qty: number;
   avg_price: number;
   currency: string;
@@ -39,14 +40,18 @@ export async function syncKisHoldings(
 
   const { data: existing } = await supabase
     .from("holdings")
-    .select("symbol, asset_class, is_etf")
+    .select("symbol, asset_class, is_etf, bucket")
     .eq("user_id", userId)
     .eq("source", "kis");
 
   const previous = new Map(
     (existing ?? []).map((row) => [
       row.symbol,
-      { asset_class: row.asset_class as AssetClass, is_etf: row.is_etf },
+      {
+        asset_class: row.asset_class as AssetClass,
+        is_etf: row.is_etf,
+        bucket: (row.bucket as Bucket | null) ?? null,
+      },
     ]),
   );
 
@@ -57,16 +62,26 @@ export async function syncKisHoldings(
   ];
   const mapped = await loadSymbolMap(symbols);
 
+  // 버킷은 추정하지 않는다. 모르면 null로 두고 화면에서 최초 1회 물어본다.
   const classify = (
     symbol: string,
     name: string,
     fallback: AssetClass,
-  ): { asset_class: AssetClass; is_etf: boolean } =>
-    mapped.get(symbol) ??
-    previous.get(symbol) ?? {
+  ): { asset_class: AssetClass; is_etf: boolean; bucket: Bucket | null } => {
+    const known = mapped.get(symbol) ?? previous.get(symbol);
+    if (known) {
+      return {
+        ...known,
+        bucket:
+          mapped.get(symbol)?.bucket ?? previous.get(symbol)?.bucket ?? null,
+      };
+    }
+    return {
       asset_class: guessAssetClass(name) || fallback,
       is_etf: isEtfName(name),
+      bucket: null,
     };
+  };
 
   const rows: Row[] = [
     ...balance.domestic.map((position) => ({
@@ -102,6 +117,7 @@ export async function syncKisHoldings(
       name: "예수금",
       asset_class: previous.get("KRW-CASH")?.asset_class ?? "cash",
       is_etf: false,
+      bucket: mapped.get("KRW-CASH")?.bucket ?? previous.get("KRW-CASH")?.bucket ?? "core",
       qty: balance.cashKrw,
       avg_price: 1,
       currency: "KRW",

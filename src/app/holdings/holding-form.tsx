@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 
 import {
   ASSET_CLASSES,
+  BUCKETS,
   CURRENCIES,
   type AssetClass,
   type Holding,
@@ -67,6 +68,25 @@ export function HoldingForm({ action, holding, submitLabel }: Props) {
             ))}
           </select>
         </label>
+      </div>
+
+      <div>
+        <span className="text-sm text-muted">버킷</span>
+        <div className="mt-2 space-y-2">
+          {BUCKETS.map((item) => (
+            <label key={item.value} className="flex items-baseline gap-2">
+              <input
+                type="radio"
+                name="bucket"
+                value={item.value}
+                defaultChecked={(holding?.bucket ?? "core") === item.value}
+                className="accent-[var(--color-fg)]"
+              />
+              <span className="text-[15px]">{item.label}</span>
+              <span className="text-sm text-muted">{item.hint}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
       <label className="flex items-center gap-2">
