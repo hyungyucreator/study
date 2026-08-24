@@ -1,0 +1,138 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+import { isAssetClass, isCurrency } from "@/lib/assets";
+import { createClient } from "@/lib/supabase/server";
+
+export type FormState = { error?: string };
+
+type ParsedHolding = {
+  symbol: string;
+  name: string;
+  asset_class: string;
+  qty: number;
+  avg_price: number;
+  currency: string;
+};
+
+function parseNumber(raw: FormDataEntryValue | null) {
+  if (raw === null) return Number.NaN;
+  // 사용자가 1,000 처럼 입력해도 받는다.
+  const cleaned = String(raw).replace(/,/g, "").trim();
+  if (cleaned === "") return Number.NaN;
+  return Number(cleaned);
+}
+
+function parse(formData: FormData): ParsedHolding | string {
+  const symbol = String(formData.get("symbol") ?? "")
+    .trim()
+    .toUpperCase();
+  const name = String(formData.get("name") ?? "").trim();
+  const assetClass = String(formData.get("asset_class") ?? "");
+  const currency = String(formData.get("currency") ?? "");
+  const qty = parseNumber(formData.get("qty"));
+  const isCash = assetClass === "cash";
+  // 현금은 평단 개념이 없다. 비워두면 1로 저장해 금액 = 수량이 되게 한다.
+  const rawAvgPrice = formData.get("avg_price");
+  const avgPrice =
+    isCash && String(rawAvgPrice ?? "").trim() === ""
+      ? 1
+      : parseNumber(rawAvgPrice);
+
+  if (!symbol) return "종목코드를 입력할 것.";
+  if (!name) return "종목명을 입력할 것.";
+  if (!isAssetClass(assetClass)) return "자산군을 선택할 것.";
+  if (!isCurrency(currency)) return "통화를 선택할 것.";
+  if (!Number.isFinite(qty) || qty <= 0) return "수량은 0보다 커야 한다.";
+  if (!Number.isFinite(avgPrice) || avgPrice < 0)
+    return "평단은 0 이상이어야 한다.";
+
+  return {
+    symbol,
+    name,
+    asset_class: assetClass,
+    qty,
+    avg_price: avgPrice,
+    currency,
+  };
+}
+
+export async function createHolding(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "로그인이 필요하다." };
+
+  const parsed = parse(formData);
+  if (typeof parsed === "string") return { error: parsed };
+
+  // RLS가 있어도 user_id는 서버에서 채운다. 클라이언트 입력을 신뢰하지 않는다.
+  const { error } = await supabase
+    .from("holdings")
+    .insert({ ...parsed, user_id: user.id, source: "manual" });
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "이미 등록된 종목코드다. 기존 항목을 수정할 것." };
+    }
+    return { error: `저장 실패: ${error.message}` };
+  }
+
+  revalidatePath("/holdings");
+  return {};
+}
+
+export async function updateHolding(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "대상을 찾을 수 없다." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "로그인이 필요하다." };
+
+  const parsed = parse(formData);
+  if (typeof parsed === "string") return { error: parsed };
+
+  const { error } = await supabase
+    .from("holdings")
+    .update({ ...parsed, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "이미 등록된 종목코드다." };
+    }
+    return { error: `저장 실패: ${error.message}` };
+  }
+
+  revalidatePath("/holdings");
+  redirect("/holdings");
+}
+
+export async function deleteHolding(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase.from("holdings").delete().eq("id", id).eq("user_id", user.id);
+
+  revalidatePath("/holdings");
+  redirect("/holdings");
+}
