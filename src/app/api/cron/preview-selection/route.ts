@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { selectNews } from "@/lib/news/select";
+import { selectNews, type Selection } from "@/lib/news/select";
 import { briefingWindow, loadCandidates } from "@/lib/news/window";
 
 /**
@@ -32,14 +32,12 @@ export async function GET(request: NextRequest) {
       scale: Number.isFinite(scale) && scale > 0 ? scale : 1,
     });
 
-    const shape = (cluster: (typeof selection.part1)[number]) => ({
+    const shape = (cluster: Selection["krEconomy"][number]) => ({
       title: cluster.lead_item.title,
       source: cluster.lead_item.source,
       category: cluster.lead_item.category,
-      region: cluster.region,
       sourceCount: cluster.sourceCount,
       score: Number(cluster.score.toFixed(1)),
-      published_at: cluster.lead_item.published_at,
       others: cluster.others.map((item) => `${item.source}: ${item.title}`),
     });
 
@@ -47,8 +45,10 @@ export async function GET(request: NextRequest) {
       window,
       scale,
       candidates: candidates.length,
-      part1: selection.part1.map(shape),
-      part2: selection.part2.map(shape),
+      krEconomy: selection.krEconomy.map(shape),
+      globalEconomy: selection.globalEconomy.map(shape),
+      krPolitics: selection.krPolitics.map(shape),
+      globalPolitics: selection.globalPolitics.map(shape),
     });
   } catch (error) {
     return NextResponse.json(

@@ -30,9 +30,14 @@ export default async function Home() {
   const change = previous ? portfolio.totalKrw - previous.total_krw : null;
   const deposited = previous ? portfolio.bookKrw - previous.book_krw : null;
 
-  const headlines = briefing
-    ? [...briefing.part1, ...briefing.part2].slice(0, 6)
-    : [];
+  // 섹션별로 앞의 두 건씩. 4섹션이면 최대 8건이 홈에 걸린다.
+  const preview =
+    briefing?.sections.map((section) => ({
+      key: section.key,
+      label: section.label,
+      total: section.items.length,
+      items: section.items.slice(0, 2),
+    })) ?? [];
 
   return (
     <main className="mx-auto w-full max-w-page px-5 pt-10 pb-24 sm:px-8">
@@ -159,29 +164,34 @@ export default async function Home() {
             {briefing ? `${briefing.date} 브리핑` : "브리핑"}
           </h2>
 
-          {headlines.length === 0 ? (
+          {preview.length === 0 ? (
             <p className="mt-3 text-small text-muted">
               아직 발행된 브리핑이 없다.
             </p>
           ) : (
             <>
-              <ul className="mt-3 border-t border-line">
-                {headlines.map((item) => (
-                  <li key={item.sourceUrl} className="border-b border-line">
-                    <Link
-                      href="/briefing"
-                      className="flex items-baseline gap-3 py-4 hover:opacity-70"
-                    >
-                      <span className="label shrink-0">
-                        {item.region === "kr" ? "국내" : "해외"}
-                      </span>
-                      <span className="font-serif text-heading text-ink">
-                        {item.headline ?? item.fact.slice(0, 30)}
-                      </span>
-                    </Link>
-                  </li>
+              <div className="mt-3 border-t border-line-strong">
+                {preview.map((section) => (
+                  <div key={section.key} className="border-b border-line py-4">
+                    <div className="flex items-baseline gap-2">
+                      <h3 className="label">{section.label}</h3>
+                      <span className="tabular label">{section.total}건</span>
+                    </div>
+                    <ul className="mt-2 space-y-1.5">
+                      {section.items.map((item) => (
+                        <li key={item.sourceUrl}>
+                          <Link
+                            href="/briefing"
+                            className="font-serif text-subhead text-ink hover:opacity-70"
+                          >
+                            {item.headline ?? item.points[0]}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
               <Link
                 href="/briefing"
                 className="label mt-3 inline-block underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"

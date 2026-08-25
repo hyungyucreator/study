@@ -33,41 +33,13 @@ export type Cluster = {
   region: Region;
 };
 
+/** 4분면. 국내/국제 축과 경제/정치·사회 축을 곱한 것이다. */
 export type Selection = {
-  part1: Cluster[];
-  part2: Cluster[];
+  krEconomy: Cluster[];
+  globalEconomy: Cluster[];
+  krPolitics: Cluster[];
+  globalPolitics: Cluster[];
 };
-
-/** 국내/글로벌 어느 한쪽이 한 부를 다 차지하지 않게 반씩 확보한 뒤 점수로 채운다. */
-function balanceRegions(
-  pool: Cluster[],
-  limit: number,
-  maxPerCategory: number,
-  minPerCategory = 0,
-): Cluster[] {
-  const half = Math.ceil(limit / 2);
-  const picked = new Set<Cluster>();
-
-  for (const region of ["kr", "global"] as const) {
-    const side = pool.filter((item) => item.region === region);
-    for (const item of withQuota(side, half, maxPerCategory, minPerCategory)) {
-      picked.add(item);
-    }
-  }
-
-  // 한쪽이 부족하면 남은 자리를 점수 순으로 채운다.
-  for (const item of pool) {
-    if (picked.size >= limit) break;
-    picked.add(item);
-  }
-
-  const chosen = pool.filter((item) => picked.has(item)).slice(0, limit);
-  // 국내 먼저, 그 안에서 점수 순. 화면 순서와 프롬프트 순서를 맞춘다.
-  return chosen.sort((a, b) => {
-    if (a.region !== b.region) return a.region === "kr" ? -1 : 1;
-    return b.score - a.score;
-  });
-}
 
 const PART1_CATEGORIES = new Set(["market", "economy"]);
 
@@ -143,6 +115,32 @@ function noiseTag(title: string): boolean {
 
 function isAnnouncement(title: string): boolean {
   return ANNOUNCEMENT_WORDS.some((word) => title.includes(word));
+}
+
+/**
+ * 지역 행정 공지. "인천시, 노후계획도시 선도지구 6곳 선정" 류.
+ * 사실이긴 하지만 국내외 동향을 읽는 재료는 아니다.
+ * 여러 매체가 동시에 쓴 것은 실제 사건일 수 있으므로 감점 폭을 줄인다.
+ */
+const ADMIN_VERBS = [
+  "선정", "지원", "추진", "개최", "조성", "유치", "모집", "공모",
+  "착공", "준공", "시행", "확대 시행", "지정", "위촉", "표창",
+];
+
+function isLocalAdmin(title: string): boolean {
+  // 제목이 "○○시," "○○군," "○○청," 처럼 기관명으로 시작하는가.
+  const opener = /^\s*[가-힣]{2,6}(시|군|구|도|청|원|처|부)\s*[,·]/.test(title);
+  return opener && ADMIN_VERBS.some((verb) => title.includes(verb));
+}
+
+/** 기업 홍보성 발표. 단독 보도일 때만 걸러낸다. */
+const PR_WORDS = [
+  "출시", "선보여", "선보인다", "업무협약", "MOU", "수주", "공급계약",
+  "공급 계약", "체결", "오픈", "런칭", "리뉴얼", "신제품",
+];
+
+function isPressRelease(title: string): boolean {
+  return PR_WORDS.some((word) => title.includes(word));
 }
 
 /**
@@ -424,10 +422,8 @@ function withQuota(
 }
 
 export type SelectOptions = {
-  /** 1부에 넘길 묶음 수. */
-  part1Limit?: number;
-  /** 2부에 넘길 묶음 수. */
-  part2Limit?: number;
+  /** 섹션 하나에 넘길 묶음 수. 4섹션이므로 총 후보는 이 값의 4배다. */
+  perSection?: number;
   /** 기준 시각. 테스트에서 고정하기 위해 받는다. */
   now?: number;
   /** 같은 사건 임계값 배율. 1보다 크면 덜 묶이고 작으면 더 묶인다. 튜닝용. */
@@ -435,16 +431,15 @@ export type SelectOptions = {
 };
 
 /**
- * 후보를 사건 단위로 묶고 점수를 매겨 1부·2부로 나눠 돌려준다.
- * 합산 20건 내외가 기본값이다 (ARCHITECTURE §4-4).
+ * 후보를 사건 단위로 묶고 점수를 매겨 4분면으로 나눠 돌려준다.
+ * 섹션당 8묶음, 합산 32묶음이 기본값이다 (ARCHITECTURE §4-4).
  */
 export function selectNews(
   candidates: Candidate[],
   options: SelectOptions = {},
 ): Selection {
   const {
-    part1Limit = 10,
-    part2Limit = 10,
+    perSection = 8,
     now = Date.now(),
     scale = 1,
   } = options;
@@ -460,17 +455,22 @@ export function selectNews(
     const sourceCount = new Set(items.map((item) => item.source)).size;
 
     // 다수 매체 보도가 가장 강한 신호. 그다음이 주제 적합성.
-    const crossSource = Math.min(sourceCount, 4) * 3;
+    const crossSource = Math.min(sourceCount, 4) * 4;
     const topical = keywordHits(leadItem, part) * 1.5;
     const freshness = Math.max(0, 6 - hoursAgo(leadItem.published_at, now) / 4);
     // 리드문이 없으면 해석 재료가 없다 (PRODUCT §4-A).
     const usable = (leadItem.lead?.length ?? 0) >= 40 ? 2 : 0;
 
+    // 지역 행정과 기업 홍보는 뒤로 민다. 단독 보도일수록 크게 감점한다.
+    const solo = sourceCount === 1;
+    const admin = isLocalAdmin(leadItem.title) ? (solo ? 10 : 4) : 0;
+    const pr = isPressRelease(leadItem.title) && solo ? 6 : 0;
+
     return {
       lead_item: leadItem,
       others: items.filter((item) => item.id !== leadItem.id),
       sourceCount,
-      score: crossSource + topical + freshness + usable,
+      score: crossSource + topical + freshness + usable - admin - pr,
       part,
       region: regionOf({
         category: leadItem.category,
@@ -488,17 +488,21 @@ export function selectNews(
 
   usable.sort((a, b) => b.score - a.score);
 
+  /** 한 분면을 뽑는다. 카테고리 한쪽이 다 차지하지 않게 상한을 건다. */
+  const quadrant = (part: 1 | 2, region: Region) =>
+    withQuota(
+      usable.filter((item) => item.part === part && item.region === region),
+      perSection,
+      // 경제는 market/economy 둘뿐이라 상한이 느슨해도 되고,
+      // 정치·사회는 politics/society/world/tech가 섞여 있어 조인다.
+      part === 1 ? perSection : Math.ceil(perSection * 0.5),
+      part === 1 ? 0 : 1,
+    );
+
   return {
-    part1: balanceRegions(
-      usable.filter((item) => item.part === 1),
-      part1Limit,
-      Math.ceil(part1Limit * 0.7),
-    ),
-    part2: balanceRegions(
-      usable.filter((item) => item.part === 2),
-      part2Limit,
-      Math.ceil(part2Limit * 0.4),
-      1,
-    ),
+    krEconomy: quadrant(1, "kr"),
+    globalEconomy: quadrant(1, "global"),
+    krPolitics: quadrant(2, "kr"),
+    globalPolitics: quadrant(2, "global"),
   };
 }

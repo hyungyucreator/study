@@ -32,7 +32,7 @@ export type Feed = {
   url: string;
   /** 피드 전체의 기본 분류. itemCategory가 있으면 그쪽이 우선한다. */
   category: NewsCategory;
-  /** 브리핑 1부(시장·경제) / 2부(오늘의 세계). */
+  /** 축: 1 = 경제, 2 = 정치·사회. 국내/국제는 region.ts가 따로 판정한다. */
   part: 1 | 2;
   /**
    * 종합 피드용. 기사에 붙은 자체 분류를 우리 분류로 옮긴다.
@@ -69,24 +69,24 @@ function khanCategory(raw: string): NewsCategory | null {
 }
 
 export const FEEDS: Feed[] = [
-  // --- 1부. 시장과 경제 ---
+  // --- 경제 ---
   { source: "연합뉴스 경제", url: "https://www.yna.co.kr/rss/economy.xml", category: "economy", part: 1 },
   { source: "매일경제 증권", url: "https://www.mk.co.kr/rss/50200011/", category: "market", part: 1 },
   { source: "BBC Business", url: "https://feeds.bbci.co.uk/news/business/rss.xml", category: "market", part: 1 },
   { source: "CNBC", url: "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", category: "market", part: 1 },
 
-  // --- 2부. 오늘의 세계 (정치·사회) ---
+  // --- 정치·사회 ---
   // 연합(통신사) = 사실 축. 동아(보수)·경향(진보) = 프레이밍 대조.
   { source: "연합뉴스 정치", url: "https://www.yna.co.kr/rss/politics.xml", category: "politics", part: 2 },
   { source: "연합뉴스 사회", url: "https://www.yna.co.kr/rss/society.xml", category: "society", part: 2 },
   { source: "동아일보 정치", url: "https://rss.donga.com/politics.xml", category: "politics", part: 2 },
   { source: "경향신문", url: "https://www.khan.co.kr/rss/rssdata/total_news.xml", category: "politics", part: 2, itemCategory: khanCategory },
 
-  // --- 2부. 국제 ---
+  // --- 국제 ---
   { source: "연합뉴스 국제", url: "https://www.yna.co.kr/rss/international.xml", category: "world", part: 2 },
   { source: "BBC World", url: "https://feeds.bbci.co.uk/news/world/rss.xml", category: "world", part: 2 },
 
-  // --- 2부. 테크 ---
+  // --- 테크 ---
   { source: "ZDNet Korea", url: "https://feeds.feedburner.com/zdkorea", category: "tech", part: 2 },
   { source: "Ars Technica", url: "https://feeds.arstechnica.com/arstechnica/index", category: "tech", part: 2 },
 ];

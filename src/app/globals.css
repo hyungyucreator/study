@@ -41,6 +41,7 @@
   /*
    * 타이포 스케일.
    * 큰 글자는 자간을 좁힌다. 한글은 크게 키우면 자간이 벌어져 보인다.
+   * 작은 글자는 반대로 라틴 기준보다 키운다. 한글은 같은 px에서 더 작아 보인다.
    */
   --text-display: 2.75rem;
   --text-display--line-height: 1.1;
@@ -53,8 +54,8 @@
   --text-title--font-weight: 700;
 
   /* 각 부의 첫 기사 전용. 편집이란 무엇을 크게 둘지 정하는 일이다. */
-  --text-lead: 1.625rem;
-  --text-lead--line-height: 1.35;
+  --text-lead: 1.4375rem;
+  --text-lead--line-height: 1.4;
   --text-lead--letter-spacing: -0.022em;
   --text-lead--font-weight: 600;
 
@@ -70,17 +71,21 @@
   --text-body: 1.0625rem;
   --text-body--line-height: 1.8;
 
-  --text-small: 0.875rem;
+  --text-small: 0.9375rem;
   --text-small--line-height: 1.7;
 
-  --text-label: 0.6875rem;
+  --text-label: 0.8125rem;
   --text-label--line-height: 1.5;
-  --text-label--letter-spacing: 0.09em;
+  --text-label--letter-spacing: 0.04em;
   --text-label--font-weight: 600;
 
   /* 컨테이너 폭 3종. 화면마다 다른 폭을 쓰지 않는다. */
-  --container-prose: 40rem;
-  --container-page: 71rem;
+  --container-prose: 42rem;
+  /*
+   * 두 열 기준으로 정한 값이다. 각 열이 약 660px가 되어 17px 한글 기준
+   * 한 줄에 35자 안팎이 들어간다. 더 넓히면 열이 프로즈 한계를 넘는다.
+   */
+  --container-page: 88rem;
   --container-form: 26rem;
 
   /* 라운드는 8px 이하로 제한 (DESIGN.md §4) */

@@ -11,9 +11,11 @@ import { renderBriefing } from "./render";
 import {
   BRIEFING_TOOL,
   IMPLICATION_ASSET_CLASSES,
+  isEconomySection,
+  SECTIONS,
   type BriefingPayload,
-  type Part1Item,
-  type Part2Item,
+  type EconomyItem,
+  type PoliticsItem,
 } from "./schema";
 
 export type GenerateResult = {
@@ -33,7 +35,21 @@ function kstDate(): string {
 
 const ASSET_CLASS_SET = new Set<string>(IMPLICATION_ASSET_CLASSES);
 
-type SourceRef = { id: string; source: string; region: "kr" | "global" };
+type SourceRef = { id: string; source: string };
+
+function emptyPayload(): BriefingPayload {
+  return {
+    kr_economy: [],
+    global_economy: [],
+    kr_politics: [],
+    global_politics: [],
+  };
+}
+
+/** 끝 온점을 떼어낸다. 개조식은 프롬프트로만 강제되지 않는다. */
+function trimPoint(text: string) {
+  return text.trim().replace(/\.$/, "");
+}
 
 /**
  * 모델 출력 검증.
@@ -41,46 +57,82 @@ type SourceRef = { id: string; source: string; region: "kr" | "global" };
  *   출처 링크는 해석을 검증할 유일한 경로라 틀린 링크를 실으면 안 된다.
  * - 매체명은 모델이 쓴 것을 버리고 후보의 값으로 덮어쓴다.
  *   첫 실행에서 "경향신문"을 "경향신점"으로 쓴 적이 있다. 받아쓸 이유가 없는 값이다.
+ * - 같은 기사가 두 섹션에 중복해 실리는 것을 막는다.
  */
 function validate(
   payload: BriefingPayload,
   allowed: Map<string, SourceRef>,
 ): { payload: BriefingPayload; dropped: string[] } {
   const dropped: string[] = [];
+  const seen = new Set<string>();
+  const result = emptyPayload();
 
-  const keep = <T extends { source_url: string }>(item: T): boolean => {
-    if (allowed.has(item.source_url)) return true;
-    dropped.push(item.source_url);
-    return false;
+  const keep = (item: { source_url: string }): boolean => {
+    if (!allowed.has(item.source_url)) {
+      dropped.push(item.source_url);
+      return false;
+    }
+    if (seen.has(item.source_url)) return false;
+    seen.add(item.source_url);
+    return true;
   };
 
-  const part1: Part1Item[] = (payload.part1 ?? []).filter(keep).map((item) => ({
-    ...item,
-    source_name: allowed.get(item.source_url)!.source,
-    implications: (item.implications ?? []).filter((implication) =>
-      ASSET_CLASS_SET.has(implication.asset_class),
-    ),
-  }));
+  for (const section of SECTIONS) {
+    const items = (payload[section.key] ?? []) as (
+      | EconomyItem
+      | PoliticsItem
+    )[];
 
-  const part2: Part2Item[] = (payload.part2 ?? []).filter(keep).map((item) => ({
-    ...item,
-    source_name: allowed.get(item.source_url)!.source,
-    investment_note: item.investment_note?.trim() ? item.investment_note : null,
-  }));
+    const cleaned = items.filter(keep).map((item) => ({
+      ...item,
+      source_name: allowed.get(item.source_url)!.source,
+      headline: trimPoint(item.headline ?? ""),
+      points: (item.points ?? []).map(trimPoint).filter(Boolean),
+    }));
 
-  return { payload: { part1, part2 }, dropped };
+    if (isEconomySection(section.key)) {
+      result[section.key as "kr_economy" | "global_economy"] = cleaned.map(
+        (item) => {
+          const economy = item as EconomyItem;
+          return {
+            ...economy,
+            surprise: trimPoint(economy.surprise ?? ""),
+            implications: (economy.implications ?? [])
+              .filter((implication) =>
+                ASSET_CLASS_SET.has(implication.asset_class),
+              )
+              .map((implication) => ({
+                ...implication,
+                note: trimPoint(implication.note ?? ""),
+              })),
+          };
+        },
+      );
+    } else {
+      result[section.key as "kr_politics" | "global_politics"] = cleaned.map(
+        (item) => {
+          const politics = item as PoliticsItem;
+          return {
+            ...politics,
+            context: trimPoint(politics.context ?? ""),
+            outlook: trimPoint(politics.outlook ?? ""),
+            investment_note: politics.investment_note?.trim()
+              ? trimPoint(politics.investment_note)
+              : null,
+          };
+        },
+      );
+    }
+  }
+
+  return { payload: result, dropped };
 }
 
 function urlMap(clusters: Cluster[]): Map<string, SourceRef> {
   const map = new Map<string, SourceRef>();
   for (const cluster of clusters) {
     for (const item of [cluster.lead_item, ...cluster.others]) {
-      // region은 모델이 아니라 코드가 정한다 (region.ts). 묶음 단위로 같다.
-      map.set(item.url, {
-        id: item.id,
-        source: item.source,
-        region: cluster.region,
-      });
+      map.set(item.url, { id: item.id, source: item.source });
     }
   }
   return map;
@@ -113,7 +165,7 @@ export async function generateBriefing(
         date,
         skipped: true,
         bodyMd: existing.body_md as string,
-        payload: { part1: [], part2: [] },
+        payload: emptyPayload(),
         usage: null,
         droppedUrls: [],
         briefingId: existing.id as string,
@@ -129,8 +181,14 @@ export async function generateBriefing(
 
   const candidates = await loadCandidates(window);
   const selection = selectNews(candidates);
+  const allClusters = [
+    ...selection.krEconomy,
+    ...selection.globalEconomy,
+    ...selection.krPolitics,
+    ...selection.globalPolitics,
+  ];
 
-  if (selection.part1.length === 0 && selection.part2.length === 0) {
+  if (allClusters.length === 0) {
     throw new Error("뉴스 후보가 없다. 수집이 먼저 돌았는지 확인할 것.");
   }
 
@@ -140,25 +198,23 @@ export async function generateBriefing(
       date,
       gauges: temperature.gauges,
       failedGauges: temperature.failed,
-      part1: selection.part1,
-      part2: selection.part2,
+      krEconomy: selection.krEconomy,
+      globalEconomy: selection.globalEconomy,
+      krPolitics: selection.krPolitics,
+      globalPolitics: selection.globalPolitics,
     }),
     tool: BRIEFING_TOOL,
+    maxTokens: 12000,
   });
 
-  const allowed = urlMap([...selection.part1, ...selection.part2]);
+  const allowed = urlMap(allClusters);
   const { payload, dropped } = validate(data, allowed);
-
-  const regions = new Map(
-    [...allowed].map(([url, ref]) => [url, ref.region] as const),
-  );
 
   const bodyMd = renderBriefing({
     date,
     gauges: temperature.gauges,
     failedGauges: temperature.failed,
     payload,
-    regions,
   });
 
   if (options.dryRun) {
@@ -207,46 +263,49 @@ export async function generateBriefing(
   // 재생성 시 이전 뉴스 행을 지우고 새로 넣는다. position unique 충돌을 피한다.
   await supabase.from("briefing_news").delete().eq("briefing_id", briefingId);
 
-  const rows = [
-    ...payload.part1.map((item, index) => ({
-      briefing_id: briefingId,
-      raw_news_id: allowed.get(item.source_url)?.id ?? null,
-      headline: item.headline,
-      fact: item.fact,
-      surprise: item.surprise,
-      implication_json: {
-        part: 1,
-        region: allowed.get(item.source_url)?.region ?? "kr",
-        source_name: item.source_name,
-        implications: item.implications,
+  // position은 섹션별 100번대로 나눈다. 정렬 순서가 곧 섹션 순서다.
+  const rows = SECTIONS.flatMap((section, sectionIndex) =>
+    (payload[section.key] as (EconomyItem | PoliticsItem)[]).map(
+      (item, index) => {
+        const economy = isEconomySection(section.key);
+        const asEconomy = item as EconomyItem;
+        const asPolitics = item as PoliticsItem;
+
+        return {
+          briefing_id: briefingId,
+          raw_news_id: allowed.get(item.source_url)?.id ?? null,
+          section: section.key,
+          headline: item.headline,
+          points: item.points,
+          // fact는 not null이다. 불렛을 줄바꿈으로 이어 붙여 채운다.
+          fact: item.points.join("\n"),
+          surprise: economy ? asEconomy.surprise : null,
+          implication_json: economy
+            ? {
+                section: section.key,
+                implications: asEconomy.implications,
+                source_name: item.source_name,
+              }
+            : {
+                section: section.key,
+                context: asPolitics.context,
+                outlook: asPolitics.outlook,
+                investment_note: asPolitics.investment_note,
+                source_name: item.source_name,
+              },
+          source_url: item.source_url,
+          position: sectionIndex * 100 + index,
+        };
       },
-      source_url: item.source_url,
-      position: index,
-    })),
-    ...payload.part2.map((item, index) => ({
-      briefing_id: briefingId,
-      raw_news_id: allowed.get(item.source_url)?.id ?? null,
-      headline: item.headline,
-      fact: item.fact,
-      surprise: null,
-      implication_json: {
-        part: 2,
-        region: allowed.get(item.source_url)?.region ?? "kr",
-        source_name: item.source_name,
-        context: item.context,
-        outlook: item.outlook,
-        investment_note: item.investment_note,
-      },
-      source_url: item.source_url,
-      position: 100 + index,
-    })),
-  ];
+    ),
+  );
 
   if (rows.length > 0) {
     const { error: newsError } = await supabase
       .from("briefing_news")
       .insert(rows);
-    if (newsError) throw new Error(`브리핑 뉴스 저장 실패: ${newsError.message}`);
+    if (newsError)
+      throw new Error(`브리핑 뉴스 저장 실패: ${newsError.message}`);
   }
 
   return {

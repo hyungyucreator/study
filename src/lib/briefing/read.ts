@@ -4,30 +4,36 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Gauge } from "@/lib/macro";
 
-import type { Implication } from "./schema";
+import { SECTIONS, type Implication, type SectionKey } from "./schema";
 
 /**
  * 화면용 브리핑 조회.
  *
  * 저장된 마크다운(body_md)을 파싱하지 않고 briefing_news를 그대로 읽는다.
- * 마크다운 렌더러 의존성이 없고, 3단 구조를 디자인 규칙대로 직접 그릴 수 있다.
- * body_md는 아카이브·재생성·알림 채널용으로 남겨둔다.
+ * 마크다운 렌더러 의존성이 없고, 구조를 디자인 규칙대로 직접 그릴 수 있다.
+ * body_md는 아카이브와 알림 채널용으로 남겨둔다.
  */
 
 export type BriefingItem = {
   headline: string | null;
-  /** 사건의 무대. 화면에서 국내/해외를 나누는 축이다. */
-  region: "kr" | "global";
-  /** 매체명. 출처 링크에 함께 보여 신뢰 경로를 만든다. */
-  sourceName: string | null;
-  fact: string;
-  surprise: string | null;
+  /** 개조식 불렛. 이것이 본문이다. */
+  points: string[];
+  section: SectionKey;
   sourceUrl: string;
-  part: 1 | 2;
+  sourceName: string | null;
+  /** 경제 섹션 */
+  surprise: string | null;
   implications: Implication[];
+  /** 정치·사회 섹션 */
   context: string | null;
   outlook: string | null;
   investmentNote: string | null;
+};
+
+export type BriefingSection = {
+  key: SectionKey;
+  label: string;
+  items: BriefingItem[];
 };
 
 export type BriefingView = {
@@ -35,17 +41,21 @@ export type BriefingView = {
   date: string;
   gauges: Gauge[];
   failedGauges: string[];
-  part1: BriefingItem[];
-  part2: BriefingItem[];
+  sections: BriefingSection[];
+  /** 전체 기사 수. */
+  count: number;
 };
 
 type NewsRow = {
   headline: string | null;
+  points: string[] | null;
+  section: string | null;
   fact: string;
   surprise: string | null;
   source_url: string;
   position: number;
   implication_json: {
+    section?: string;
     part?: number;
     region?: "kr" | "global";
     source_name?: string;
@@ -56,16 +66,34 @@ type NewsRow = {
   } | null;
 };
 
+const SECTION_KEYS = new Set<string>(SECTIONS.map((section) => section.key));
+
+/** 0008 이전 행은 section이 없다. part와 region으로 역산한다. */
+function sectionOf(row: NewsRow): SectionKey {
+  const stored = row.section ?? row.implication_json?.section;
+  if (stored && SECTION_KEYS.has(stored)) return stored as SectionKey;
+
+  const economy = (row.implication_json?.part ?? 1) === 1;
+  const global = row.implication_json?.region === "global";
+  if (economy) return global ? "global_economy" : "kr_economy";
+  return global ? "global_politics" : "kr_politics";
+}
+
 function toItem(row: NewsRow): BriefingItem {
   const meta = row.implication_json ?? {};
+  // points가 없는 옛 행은 fact를 줄 단위로 쪼갠다.
+  const points =
+    row.points && row.points.length > 0
+      ? row.points
+      : row.fact.split("\n").filter(Boolean);
+
   return {
     headline: row.headline,
-    region: meta.region === "global" ? "global" : "kr",
-    sourceName: meta.source_name ?? null,
-    fact: row.fact,
-    surprise: row.surprise,
+    points,
+    section: sectionOf(row),
     sourceUrl: row.source_url,
-    part: meta.part === 2 ? 2 : 1,
+    sourceName: meta.source_name ?? null,
+    surprise: row.surprise,
     implications: meta.implications ?? [],
     context: meta.context ?? null,
     outlook: meta.outlook ?? null,
@@ -92,7 +120,9 @@ export async function loadBriefing(
 
   const { data: news } = await supabase
     .from("briefing_news")
-    .select("headline, fact, surprise, source_url, position, implication_json")
+    .select(
+      "headline, points, section, fact, surprise, source_url, position, implication_json",
+    )
     .eq("briefing_id", briefing.id)
     .order("position");
 
@@ -102,13 +132,19 @@ export async function loadBriefing(
     failed?: string[];
   } | null;
 
+  const sections = SECTIONS.map((section) => ({
+    key: section.key,
+    label: section.label,
+    items: items.filter((item) => item.section === section.key),
+  })).filter((section) => section.items.length > 0);
+
   return {
     id: briefing.id as string,
     date: briefing.date as string,
     gauges: temperature?.gauges ?? [],
     failedGauges: temperature?.failed ?? [],
-    part1: items.filter((item) => item.part === 1),
-    part2: items.filter((item) => item.part === 2),
+    sections,
+    count: items.length,
   };
 }
 
