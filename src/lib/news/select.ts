@@ -192,7 +192,7 @@ function collapseRecaps(clusters: Cluster[]): Cluster[] {
  * 무관한 기사끼리 다 비슷해진다 — 실제로 관세 기사와 이란 기사가 한 묶음이 됐다.
  * 영어는 단어 단위로 비교한다.
  */
-type Fingerprint = { lang: "ko" | "en"; set: Set<string> };
+export type Fingerprint = { lang: "ko" | "en"; set: Set<string> };
 
 const EN_STOPWORDS = new Set([
   "the", "and", "for", "with", "from", "that", "this", "are", "was", "were",
@@ -209,7 +209,7 @@ function bigrams(text: string): Set<string> {
   return grams;
 }
 
-function fingerprint(title: string): Fingerprint | null {
+export function fingerprint(title: string): Fingerprint | null {
   const stripped = title
     .replace(/\[[^\]]{1,20}\]/g, " ")
     .replace(/\([^)]{1,30}\)/g, " ")
@@ -239,9 +239,9 @@ function fingerprint(title: string): Fingerprint | null {
  * 그래서 임계값을 낮추면 무관한 기사가 붙고, 높이면 같은 사건이 갈라졌다.
  * 그날 후보 전체에서 드물게 나오는 조각일수록 크게 세면 그 딜레마가 풀린다.
  */
-type Weights = Map<string, number>;
+export type Weights = Map<string, number>;
 
-function buildWeights(prints: Fingerprint[]): Weights {
+export function buildWeights(prints: Fingerprint[]): Weights {
   const df = new Map<string, number>();
   for (const print of prints) {
     for (const token of print.set) {
@@ -257,7 +257,7 @@ function buildWeights(prints: Fingerprint[]): Weights {
   return weights;
 }
 
-function weightedJaccard(
+export function weightedJaccard(
   a: Set<string>,
   b: Set<string>,
   weights: Weights,

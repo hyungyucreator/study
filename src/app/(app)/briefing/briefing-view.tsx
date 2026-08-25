@@ -4,6 +4,8 @@ import { assetClassLabel } from "@/lib/assets";
 import type { BriefingItem, BriefingView } from "@/lib/briefing/read";
 import type { Implication } from "@/lib/briefing/schema";
 
+import { WithTerms } from "./term";
+
 /**
  * 브리핑 화면.
  *
@@ -46,7 +48,13 @@ function Row({
   );
 }
 
-function Points({ points }: { points: string[] }) {
+function Points({
+  points,
+  cards,
+}: {
+  points: string[];
+  cards: { term: string; summary: string | null }[];
+}) {
   return (
     <ul className="mt-3.5 space-y-2">
       {points.map((point) => (
@@ -54,14 +62,22 @@ function Points({ points }: { points: string[] }) {
           <span aria-hidden className="text-faint shrink-0 select-none">
             ·
           </span>
-          <span>{point}</span>
+          <span>
+            <WithTerms text={point} cards={cards} />
+          </span>
         </li>
       ))}
     </ul>
   );
 }
 
-function Implications({ items }: { items: Implication[] }) {
+function Implications({
+  items,
+  cards,
+}: {
+  items: Implication[];
+  cards: { term: string; summary: string | null }[];
+}) {
   if (items.length === 0) return null;
 
   return (
@@ -77,7 +93,9 @@ function Implications({ items }: { items: Implication[] }) {
             >
               {DIRECTION[implication.direction]}
             </span>
-            <p className="text-small text-muted">{implication.note}</p>
+            <p className="text-small text-muted">
+              <WithTerms text={implication.note} cards={cards} />
+            </p>
           </li>
         ))}
       </ul>
@@ -94,17 +112,47 @@ function Article({ item, lead }: { item: BriefingItem; lead: boolean }) {
         {item.headline ?? item.points[0]}
       </h4>
 
-      <Points points={item.points} />
+      <Points points={item.points} cards={item.cards} />
 
       <div className="mt-4">
-        {item.surprise ? <Row label="예상 대비">{item.surprise}</Row> : null}
-        {item.context ? <Row label="맥락">{item.context}</Row> : null}
-        {item.outlook ? <Row label="지켜볼 것">{item.outlook}</Row> : null}
+        {item.surprise ? (
+          <Row label="예상 대비">
+            <WithTerms text={item.surprise} cards={item.cards} />
+          </Row>
+        ) : null}
+        {item.context ? (
+          <Row label="맥락">
+            <WithTerms text={item.context} cards={item.cards} />
+          </Row>
+        ) : null}
+        {item.outlook ? (
+          <Row label="지켜볼 것">
+            <WithTerms text={item.outlook} cards={item.cards} />
+          </Row>
+        ) : null}
 
-        <Implications items={item.implications} />
+        <Implications items={item.implications} cards={item.cards} />
 
         {item.investmentNote ? (
-          <Row label="투자 함의">{item.investmentNote}</Row>
+          <Row label="투자 함의">
+            <WithTerms text={item.investmentNote} cards={item.cards} />
+          </Row>
+        ) : null}
+
+        {item.thread ? (
+          <Row label="이슈">
+            <Link
+              href={`/thread/${item.thread.id}`}
+              className="text-small underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
+            >
+              {item.thread.title}
+            </Link>
+            {item.thread.entries > 1 ? (
+              <span className="tabular label ml-2">
+                {item.thread.entries}번째 전개
+              </span>
+            ) : null}
+          </Row>
         ) : null}
 
         <Row label="출처">
@@ -185,8 +233,27 @@ export function BriefingBody({
         </h1>
       </header>
 
+      {view.threads.length > 0 ? (
+        <section className="mt-8 border-b border-line pb-6">
+          <h2 className="label">오늘 이어진 이슈</h2>
+          <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+            {view.threads.slice(0, 6).map((thread) => (
+              <li key={thread.id}>
+                <Link
+                  href={`/thread/${thread.id}`}
+                  className="text-subhead text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
+                >
+                  {thread.title}
+                </Link>
+                <span className="tabular label ml-1.5">{thread.entries}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {/* 두 열이 곧 축이다. 좁은 화면에서는 국내 다음 국제로 이어진다. */}
-      <div className="mt-12 grid gap-x-16 gap-y-16 lg:grid-cols-2">
+      <div className="mt-10 grid gap-x-16 gap-y-16 lg:grid-cols-2">
         {columns.map((column) => (
           <div
             key={column.key}

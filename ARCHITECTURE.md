@@ -38,7 +38,8 @@
 
 > 정확한 단가는 구현 시점에 공식 요금 문서에서 재확인할 것.
 
-1. **모델 티어링.** 데일리 브리핑·딥다이브(해석 품질 중요) → Sonnet. 뉴스 1차 분류·개념 카드 → Haiku. 전 작업 상위 모델 사용 금지.
+1. **모델 티어링.** 데일리 브리핑·딥다이브·**개념 카드** → Sonnet. 뉴스 1차 분류는 코드로 처리한다. 전 작업 상위 모델 사용 금지.
+   - 개념 카드를 Haiku에서 Sonnet으로 올렸다(2026-08-26). 카드는 한 번 만들면 영구 저장이라 재생성이 없고 하루 몇 건뿐이라 비용 차이가 미미하다. 초보자에게 개념을 정확히 설명하는 일은 요약보다 어렵고, 값싼 모델로 틀린 설명을 영구 저장하는 쪽이 더 비싸다.
 2. **프롬프트 캐싱.** 브리핑 시스템 프롬프트(포맷·해석 원칙·금지 표현)는 매일 동일 → cache_control 지정. 캐시 히트 시 입력 단가 대폭 할인.
 3. **배치 API (시간 비민감 작업만).** 배치는 입력·출력 50% 할인이고 캐싱과 중첩 적용됨. 데일리 브리핑은 새벽 04:00 배치 제출 → 07:00 완료 버퍼. 위클리 딥다이브는 무조건 배치. **이벤트 트리거 브리핑은 즉시성이 생명이므로 일반 호출.**
 4. **토큰 자체를 줄이는 설계.**
@@ -57,10 +58,13 @@ raw_market(id, symbol, kind, value, as_of, source)
 -- 포트폴리오 시세 캐시도 이 테이블을 쓴다. kind='price'(종목 현재가), kind='fx'(symbol='USDKRW').
 -- as_of는 제공자의 체결시각이 아니라 우리가 관측한 시각이다 (장 마감 후 캐시 신선도 판단용).
 briefings(id, date, type[daily|event], body_md, temperature_json, created_at)
-briefing_news(briefing_id, raw_news_id, fact, surprise, implication_json, source_url)
+briefing_news(briefing_id, raw_news_id, thread_id, section, headline, points,
+              terms, fact, surprise, implication_json, source_url, position)
 events_calendar(id, name, scheduled_at, kind, importance)
 deep_dives(id, week, title, body_md, sources_json)
-concept_cards(id, term, body_md, created_at)  -- 재생성 금지
+concept_cards(id, term, summary, body_md, created_at)  -- 재생성 금지. summary는 툴팁용
+threads(id, title, summary, started_on, last_seen_on, entries, created_at)  -- 공용, 이슈 흐름
+thread_news(thread_id, raw_news_id, published_at)  -- 공용, 타임라인
 etf_catalog(id, layer[core|tilt], category, ticker, name, expense_ratio,
             aum, tracking_error, hedged, dist_type, pension_eligible,
             regime_tags_json, updated_at)

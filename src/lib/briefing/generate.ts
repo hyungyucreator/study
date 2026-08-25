@@ -5,9 +5,18 @@ import { selectNews, type Cluster } from "@/lib/news/select";
 import { briefingWindow, loadCandidates } from "@/lib/news/window";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+import { ensureCards } from "@/lib/concepts/generate";
+
 import { callWithTool, type Usage } from "./anthropic";
 import { buildUserMessage, SYSTEM_PROMPT } from "./prompt";
 import { renderBriefing } from "./render";
+import {
+  activeThreads,
+  backfillTimeline,
+  formatThreads,
+  resolveThreads,
+  touchThreads,
+} from "./threads";
 import {
   BRIEFING_TOOL,
   IMPLICATION_ASSET_CLASSES,
@@ -27,6 +36,9 @@ export type GenerateResult = {
   /** 모델이 만들어냈거나 후보에 없던 링크. 비어 있어야 정상이다. */
   droppedUrls: string[];
   briefingId: string | null;
+  /** 붙은 이슈 수와 새로 만든 용어 카드 수. 검증용. */
+  threads: { total: number; created: number };
+  terms: number;
 };
 
 function kstDate(): string {
@@ -35,7 +47,7 @@ function kstDate(): string {
 
 const ASSET_CLASS_SET = new Set<string>(IMPLICATION_ASSET_CLASSES);
 
-type SourceRef = { id: string; source: string };
+type SourceRef = { id: string; source: string; title: string };
 
 function emptyPayload(): BriefingPayload {
   return {
@@ -132,7 +144,11 @@ function urlMap(clusters: Cluster[]): Map<string, SourceRef> {
   const map = new Map<string, SourceRef>();
   for (const cluster of clusters) {
     for (const item of [cluster.lead_item, ...cluster.others]) {
-      map.set(item.url, { id: item.id, source: item.source });
+      map.set(item.url, {
+        id: item.id,
+        source: item.source,
+        title: item.title,
+      });
     }
   }
   return map;
@@ -169,6 +185,8 @@ export async function generateBriefing(
         usage: null,
         droppedUrls: [],
         briefingId: existing.id as string,
+        threads: { total: 0, created: 0 },
+        terms: 0,
       };
     }
   }
@@ -181,6 +199,7 @@ export async function generateBriefing(
 
   const candidates = await loadCandidates(window);
   const selection = selectNews(candidates);
+  const openThreads = await activeThreads(supabase);
   const allClusters = [
     ...selection.krEconomy,
     ...selection.globalEconomy,
@@ -198,6 +217,7 @@ export async function generateBriefing(
       date,
       gauges: temperature.gauges,
       failedGauges: temperature.failed,
+      threads: formatThreads(openThreads),
       krEconomy: selection.krEconomy,
       globalEconomy: selection.globalEconomy,
       krPolitics: selection.krPolitics,
@@ -226,6 +246,8 @@ export async function generateBriefing(
       usage,
       droppedUrls: dropped,
       briefingId: null,
+      threads: { total: 0, created: 0 },
+      terms: 0,
     };
   }
 
@@ -263,6 +285,43 @@ export async function generateBriefing(
   // 재생성 시 이전 뉴스 행을 지우고 새로 넣는다. position unique 충돌을 피한다.
   await supabase.from("briefing_news").delete().eq("briefing_id", briefingId);
 
+  // 이슈 배정을 실제 스레드 id로 바꾼다. 없으면 만들고, 비슷하면 기존 것에 붙인다.
+  const knownIds = new Set(openThreads.map((thread) => thread.id));
+  const assignments = SECTIONS.flatMap((section) =>
+    (payload[section.key] as (EconomyItem | PoliticsItem)[]).map((item) => ({
+      key: item.source_url,
+      assignment: item.thread ?? {},
+      date,
+    })),
+  );
+  const threadMap = await resolveThreads(assignments);
+
+  // 새로 만든 스레드는 과거 기사를 붙여 타임라인의 시작점을 만든다.
+  let created = 0;
+  for (const section of SECTIONS) {
+    for (const item of payload[section.key] as (EconomyItem | PoliticsItem)[]) {
+      const thread = threadMap.get(item.source_url);
+      if (!thread || knownIds.has(thread.id)) continue;
+      knownIds.add(thread.id);
+      created += 1;
+      // 헤드라인은 모델이 새로 쓴 문장이라 원문 어휘와 다르다.
+      // 과거 기사를 찾을 때는 실제 기사 제목으로 맞춰야 걸린다.
+      const seed = allowed.get(item.source_url)?.title ?? item.headline;
+      await backfillTimeline(thread.id, seed);
+    }
+  }
+
+  const threadStats = { total: threadMap.size, created };
+
+  // 용어 카드를 확보한다. 없는 것만 한 번의 호출로 만든다.
+  const allTerms = SECTIONS.flatMap((section) =>
+    (payload[section.key] as (EconomyItem | PoliticsItem)[]).flatMap(
+      (item) => item.terms ?? [],
+    ),
+  );
+  const cards = await ensureCards(allTerms);
+  const termCount = cards.length;
+
   // position은 섹션별 100번대로 나눈다. 정렬 순서가 곧 섹션 순서다.
   const rows = SECTIONS.flatMap((section, sectionIndex) =>
     (payload[section.key] as (EconomyItem | PoliticsItem)[]).map(
@@ -275,6 +334,8 @@ export async function generateBriefing(
           briefing_id: briefingId,
           raw_news_id: allowed.get(item.source_url)?.id ?? null,
           section: section.key,
+          thread_id: threadMap.get(item.source_url)?.id ?? null,
+          terms: item.terms ?? [],
           headline: item.headline,
           points: item.points,
           // fact는 not null이다. 불렛을 줄바꿈으로 이어 붙여 채운다.
@@ -308,6 +369,18 @@ export async function generateBriefing(
       throw new Error(`브리핑 뉴스 저장 실패: ${newsError.message}`);
   }
 
+  // 전개 횟수와 최근 상태를 갱신한다. 요약은 그 이슈의 첫 항목 헤드라인을 쓴다.
+  await touchThreads(
+    SECTIONS.flatMap((section) =>
+      (payload[section.key] as (EconomyItem | PoliticsItem)[]).flatMap(
+        (item) => {
+          const thread = threadMap.get(item.source_url);
+          return thread ? [{ id: thread.id, date, summary: item.headline }] : [];
+        },
+      ),
+    ),
+  );
+
   return {
     date,
     skipped: false,
@@ -316,5 +389,7 @@ export async function generateBriefing(
     usage,
     droppedUrls: dropped,
     briefingId,
+    threads: threadStats,
+    terms: termCount,
   };
 }

@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 
 const ITEMS = [
   { href: "/briefing", label: "브리핑" },
+  { href: "/glossary", label: "단어장" },
   { href: "/holdings", label: "보유자산" },
 ];
 

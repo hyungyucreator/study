@@ -14,6 +14,17 @@ import { SECTIONS, type Implication, type SectionKey } from "./schema";
  * body_md는 아카이브와 알림 채널용으로 남겨둔다.
  */
 
+export type ItemThread = {
+  id: string;
+  title: string;
+  entries: number;
+};
+
+export type TermCard = {
+  term: string;
+  summary: string | null;
+};
+
 export type BriefingItem = {
   headline: string | null;
   /** 개조식 불렛. 이것이 본문이다. */
@@ -28,6 +39,10 @@ export type BriefingItem = {
   context: string | null;
   outlook: string | null;
   investmentNote: string | null;
+  /** 이 항목이 속한 이슈. 브리핑에 기억을 붙이는 장치다. */
+  thread: ItemThread | null;
+  /** 본문에 밑줄을 그을 용어와 그 설명. */
+  cards: TermCard[];
 };
 
 export type BriefingSection = {
@@ -44,12 +59,16 @@ export type BriefingView = {
   sections: BriefingSection[];
   /** 전체 기사 수. */
   count: number;
+  /** 오늘 움직인 이슈. 전개가 2회 이상인 것부터. */
+  threads: ItemThread[];
 };
 
 type NewsRow = {
   headline: string | null;
   points: string[] | null;
   section: string | null;
+  thread_id: string | null;
+  terms: string[] | null;
   fact: string;
   surprise: string | null;
   source_url: string;
@@ -79,7 +98,11 @@ function sectionOf(row: NewsRow): SectionKey {
   return global ? "global_politics" : "kr_politics";
 }
 
-function toItem(row: NewsRow): BriefingItem {
+function toItem(
+  row: NewsRow,
+  threads: Map<string, ItemThread>,
+  cards: Map<string, TermCard>,
+): BriefingItem {
   const meta = row.implication_json ?? {};
   // points가 없는 옛 행은 fact를 줄 단위로 쪼갠다.
   const points =
@@ -98,6 +121,11 @@ function toItem(row: NewsRow): BriefingItem {
     context: meta.context ?? null,
     outlook: meta.outlook ?? null,
     investmentNote: meta.investment_note ?? null,
+    thread: row.thread_id ? (threads.get(row.thread_id) ?? null) : null,
+    // 카드가 없는 용어는 밑줄을 긋지 않는다. 눌러도 보여줄 게 없다.
+    cards: (row.terms ?? [])
+      .map((term) => cards.get(term))
+      .filter((card): card is TermCard => card !== undefined),
   };
 }
 
@@ -121,12 +149,45 @@ export async function loadBriefing(
   const { data: news } = await supabase
     .from("briefing_news")
     .select(
-      "headline, points, section, fact, surprise, source_url, position, implication_json",
+      "headline, points, section, thread_id, terms, fact, surprise, source_url, position, implication_json",
     )
     .eq("briefing_id", briefing.id)
     .order("position");
 
-  const items = ((news ?? []) as NewsRow[]).map(toItem);
+  const rows = (news ?? []) as NewsRow[];
+
+  // 이슈와 용어 카드를 한 번에 당겨온다.
+  const threadIds = [
+    ...new Set(rows.map((row) => row.thread_id).filter(Boolean)),
+  ] as string[];
+  const termList = [...new Set(rows.flatMap((row) => row.terms ?? []))];
+
+  const [threadRows, cardRows] = await Promise.all([
+    threadIds.length > 0
+      ? supabase
+          .from("threads")
+          .select("id, title, entries")
+          .in("id", threadIds)
+      : Promise.resolve({ data: [] }),
+    termList.length > 0
+      ? supabase
+          .from("concept_cards")
+          .select("term, summary")
+          .in("term", termList)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const threads = new Map(
+    ((threadRows.data ?? []) as ItemThread[]).map((thread) => [
+      thread.id,
+      thread,
+    ]),
+  );
+  const cards = new Map(
+    ((cardRows.data ?? []) as TermCard[]).map((card) => [card.term, card]),
+  );
+
+  const items = rows.map((row) => toItem(row, threads, cards));
   const temperature = briefing.temperature_json as {
     gauges?: Gauge[];
     failed?: string[];
@@ -138,6 +199,28 @@ export async function loadBriefing(
     items: items.filter((item) => item.section === section.key),
   })).filter((section) => section.items.length > 0);
 
+  // 오늘 여러 건이 붙었거나, 며칠에 걸쳐 이어진 이슈.
+  // 전개 횟수만 보면 첫날에는 아무것도 안 보인다.
+  const todayCount = new Map<string, number>();
+  for (const item of items) {
+    if (!item.thread) continue;
+    todayCount.set(
+      item.thread.id,
+      (todayCount.get(item.thread.id) ?? 0) + 1,
+    );
+  }
+
+  const todayThreads = [...threads.values()]
+    .filter(
+      (thread) =>
+        thread.entries >= 2 || (todayCount.get(thread.id) ?? 0) >= 2,
+    )
+    .sort(
+      (a, b) =>
+        b.entries - a.entries ||
+        (todayCount.get(b.id) ?? 0) - (todayCount.get(a.id) ?? 0),
+    );
+
   return {
     id: briefing.id as string,
     date: briefing.date as string,
@@ -145,6 +228,7 @@ export async function loadBriefing(
     failedGauges: temperature?.failed ?? [],
     sections,
     count: items.length,
+    threads: todayThreads,
   };
 }
 

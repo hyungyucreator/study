@@ -41,10 +41,20 @@ export function sectionLabel(key: string) {
   return SECTIONS.find((section) => section.key === key)?.label ?? key;
 }
 
+/** 모델이 돌려주는 이슈 배정. 기존이면 id, 새 흐름이면 new_title. */
+export type ThreadRef = {
+  id?: string | null;
+  new_title?: string;
+};
+
 type BaseItem = {
   headline: string;
   /** 개조식 불렛. 이것이 본문이다. */
   points: string[];
+  /** 이 항목이 속한 이슈. 브리핑에 기억을 붙이는 장치다. */
+  thread: ThreadRef;
+  /** 초보자가 모를 만한 용어 0~3개. 개념 카드로 이어진다. */
+  terms: string[];
   source_url: string;
   source_name: string;
 };
@@ -97,11 +107,39 @@ const source_url = {
   description: "제공된 후보의 url을 그대로. 만들어내지 말 것.",
 };
 
+const thread = {
+  type: "object",
+  description:
+    "이 항목이 속한 이슈. 제공된 '진행 중인 이슈' 목록에 해당하는 것이 있으면 반드시 그 id를 쓴다. 없을 때만 new_title로 새 이슈를 만든다.",
+  properties: {
+    id: {
+      type: ["string", "null"],
+      description: "기존 이슈의 id. 목록에 있는 값을 그대로 쓴다.",
+    },
+    new_title: {
+      type: "string",
+      description:
+        "새 이슈 제목. **id가 null이면 반드시 채운다. 비워두지 않는다.** 사건이 아니라 흐름을 가리킨다. 몇 주 뒤 후속 기사가 나와도 같은 제목 아래 묶일 수 있어야 한다. 좋은 예: '미국 통상 압박', '엔비디아 실적과 AI 투자', '한국은행 통화정책'. 나쁜 예: '협상단 철수', '25일 코스피 급락'.",
+    },
+  },
+  required: ["id", "new_title"],
+};
+
+const terms = {
+  type: "array",
+  maxItems: 3,
+  description:
+    "이 항목에서 **투자를 막 시작한 사람이 모를 만한 용어** 0~3개. 본문에 나온 표기를 그대로 쓴다. 일반 상식어(금리, 주가, 정부)는 넣지 않는다. 없으면 빈 배열. 좋은 예: '국채 바이백', '잭슨홀', '인적분할', '유상증자'.",
+  items: { type: "string" },
+};
+
 const economyItem = {
   type: "object",
   properties: {
     headline,
     points,
+    thread,
+    terms,
     surprise: {
       type: "string",
       description:
@@ -132,6 +170,8 @@ const economyItem = {
   required: [
     "headline",
     "points",
+    "thread",
+    "terms",
     "surprise",
     "implications",
     "source_url",
@@ -144,6 +184,8 @@ const politicsItem = {
   properties: {
     headline,
     points,
+    thread,
+    terms,
     context: {
       type: "string",
       description:
@@ -165,6 +207,8 @@ const politicsItem = {
   required: [
     "headline",
     "points",
+    "thread",
+    "terms",
     "context",
     "outlook",
     "investment_note",
