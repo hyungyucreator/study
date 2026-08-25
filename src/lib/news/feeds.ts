@@ -14,6 +14,7 @@
  * - Reuters: 공개 RSS 폐지(404). BBC·CNBC로 대체.
  * - 조선일보: description이 비어 제목만 온다.
  * - 한겨레: pubDate가 없고 description은 이미지 태그뿐이다.
+ * - 전자신문 Section901: 이름과 달리 IT가 아니라 종합면이다. ZDNet Korea로 교체.
  */
 
 export type NewsCategory =
@@ -86,7 +87,7 @@ export const FEEDS: Feed[] = [
   { source: "BBC World", url: "https://feeds.bbci.co.uk/news/world/rss.xml", category: "world", part: 2 },
 
   // --- 2부. 테크 ---
-  { source: "전자신문", url: "https://rss.etnews.com/Section901.xml", category: "tech", part: 2 },
+  { source: "ZDNet Korea", url: "https://feeds.feedburner.com/zdkorea", category: "tech", part: 2 },
   { source: "Ars Technica", url: "https://feeds.arstechnica.com/arstechnica/index", category: "tech", part: 2 },
 ];
 
