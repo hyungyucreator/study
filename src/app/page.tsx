@@ -115,7 +115,7 @@ export default async function Home() {
           className="flex items-baseline justify-between border-b border-line py-4 hover:bg-line/30"
         >
           <span className="text-[17px]">데일리 브리핑</span>
-          <span className="text-sm text-muted">오늘의 온도 · 시장 · 세계</span>
+          <span className="text-sm text-muted">시장 상황 · 국내 · 해외</span>
         </Link>
         <Link
           href="/holdings"

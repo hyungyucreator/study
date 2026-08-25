@@ -18,6 +18,8 @@ export type BriefingItem = {
   headline: string | null;
   /** 사건의 무대. 화면에서 국내/해외를 나누는 축이다. */
   region: "kr" | "global";
+  /** 매체명. 출처 링크에 함께 보여 신뢰 경로를 만든다. */
+  sourceName: string | null;
   fact: string;
   surprise: string | null;
   sourceUrl: string;
@@ -46,6 +48,7 @@ type NewsRow = {
   implication_json: {
     part?: number;
     region?: "kr" | "global";
+    source_name?: string;
     implications?: Implication[];
     context?: string;
     outlook?: string;
@@ -58,6 +61,7 @@ function toItem(row: NewsRow): BriefingItem {
   return {
     headline: row.headline,
     region: meta.region === "global" ? "global" : "kr",
+    sourceName: meta.source_name ?? null,
     fact: row.fact,
     surprise: row.surprise,
     sourceUrl: row.source_url,

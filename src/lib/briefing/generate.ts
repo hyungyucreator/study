@@ -217,6 +217,7 @@ export async function generateBriefing(
       implication_json: {
         part: 1,
         region: allowed.get(item.source_url)?.region ?? "kr",
+        source_name: item.source_name,
         implications: item.implications,
       },
       source_url: item.source_url,
@@ -231,6 +232,7 @@ export async function generateBriefing(
       implication_json: {
         part: 2,
         region: allowed.get(item.source_url)?.region ?? "kr",
+        source_name: item.source_name,
         context: item.context,
         outlook: item.outlook,
         investment_note: item.investment_note,

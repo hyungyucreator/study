@@ -6,7 +6,10 @@ import type { Implication } from "@/lib/briefing/schema";
 
 /**
  * 브리핑 화면.
- * 위계는 크기·굵기로만 만든다. 카드를 쓰지 않고 여백과 1px 선으로 나눈다 (DESIGN.md).
+ *
+ * 매일 읽을 화면이라 읽기 경험이 전부다.
+ * 위계는 크기·굵기로만 만들고, 구분은 여백과 1px 선으로 한다.
+ * 카드·그림자·유채색을 쓰지 않는다 (DESIGN.md).
  */
 
 const DIRECTION: Record<Implication["direction"], string> = {
@@ -17,109 +20,109 @@ const DIRECTION: Record<Implication["direction"], string> = {
 
 function Gauges({ view }: { view: BriefingView }) {
   if (view.gauges.length === 0) {
-    return <p className="mt-3 text-[15px] text-muted">지표를 수집하지 못했다.</p>;
+    return <p className="text-[15px] text-muted">지표를 수집하지 못했다.</p>;
   }
 
   return (
-    <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
-      {view.gauges.map((gauge) => (
-        <div key={gauge.key}>
-          <div className="text-sm text-muted">{gauge.label}</div>
-          <div className="tabular mt-1 text-xl font-medium">
-            {gauge.display}
-            {gauge.change !== null ? (
-              <span className="ml-2 text-sm font-normal text-muted">
-                {gauge.change > 0 ? "+" : ""}
-                {gauge.change}
+    <>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-4">
+        {view.gauges.map((gauge) => (
+          <div key={gauge.key}>
+            <div className="text-[13px] text-muted">{gauge.label}</div>
+            <div className="tabular mt-1.5 flex items-baseline gap-1.5">
+              <span className="text-[22px] leading-none font-semibold">
+                {gauge.display}
               </span>
+              {gauge.change !== null ? (
+                <span className="text-[13px] text-muted">
+                  {gauge.change > 0 ? "+" : ""}
+                  {gauge.change}
+                </span>
+              ) : null}
+            </div>
+            {gauge.note ? (
+              <div className="mt-2 text-[13px] leading-[1.5] text-muted">
+                {gauge.note}
+              </div>
             ) : null}
           </div>
-          {gauge.note ? (
-            <div className="mt-1 text-sm text-muted">{gauge.note}</div>
-          ) : null}
-        </div>
-      ))}
+        ))}
+      </div>
       {view.failedGauges.length > 0 ? (
-        <div className="col-span-full text-sm text-muted">
+        <p className="mt-5 text-[13px] text-muted">
           {view.failedGauges.join(", ")}: 오늘 데이터 수집 실패
-        </div>
+        </p>
       ) : null}
+    </>
+  );
+}
+
+/** 라벨 + 내용 한 줄. 라벨은 작게 눕히고 내용이 읽기 흐름을 갖게 한다. */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-4 sm:flex sm:gap-5">
+      <div className="w-[4.5rem] shrink-0 pt-0.5 text-[13px] text-muted">
+        {label}
+      </div>
+      <div className="mt-1 text-[15px] leading-[1.7] sm:mt-0">{children}</div>
     </div>
   );
 }
 
 function Row({ item, index }: { item: BriefingItem; index: number }) {
   return (
-    <article className="border-t border-line py-7">
-      <h3 className="text-[17px] font-semibold">
-        <span className="tabular mr-2 text-muted">{index + 1}</span>
-        {item.headline ?? item.fact.slice(0, 30)}
-      </h3>
+    <article className="border-t border-line py-8 first:border-t-0 first:pt-5">
+      <h4 className="flex gap-3 text-[17px] leading-[1.5] font-semibold">
+        <span className="tabular shrink-0 text-muted">{index}</span>
+        <span>{item.headline ?? item.fact.slice(0, 30)}</span>
+      </h4>
 
-      <p className="mt-3 text-[16px] leading-[1.7]">{item.fact}</p>
+      <p className="mt-3 pl-7 text-[16px] leading-[1.75]">{item.fact}</p>
 
-      <dl className="mt-4 space-y-2 text-[15px]">
+      <div className="pl-7">
         {item.surprise ? (
-          <div className="flex gap-3">
-            <dt className="w-20 shrink-0 text-muted">서프라이즈</dt>
-            <dd>{item.surprise}</dd>
-          </div>
+          <Field label="서프라이즈">{item.surprise}</Field>
         ) : null}
-
-        {item.context ? (
-          <div className="flex gap-3">
-            <dt className="w-20 shrink-0 text-muted">맥락</dt>
-            <dd>{item.context}</dd>
-          </div>
-        ) : null}
-
-        {item.outlook ? (
-          <div className="flex gap-3">
-            <dt className="w-20 shrink-0 text-muted">지켜볼 것</dt>
-            <dd>{item.outlook}</dd>
-          </div>
-        ) : null}
-
-        {item.implications.length > 0 ? (
-          <div className="flex gap-3">
-            <dt className="w-20 shrink-0 text-muted">자산군</dt>
-            <dd className="space-y-1">
-              {item.implications.map((implication) => (
-                <div key={implication.asset_class}>
-                  <span className="font-medium">
-                    {assetClassLabel(implication.asset_class)}{" "}
-                    {DIRECTION[implication.direction]}
-                  </span>
-                  <span className="text-muted"> — {implication.note}</span>
-                </div>
-              ))}
-            </dd>
-          </div>
-        ) : null}
-
+        {item.context ? <Field label="맥락">{item.context}</Field> : null}
+        {item.outlook ? <Field label="지켜볼 것">{item.outlook}</Field> : null}
         {item.investmentNote ? (
-          <div className="flex gap-3">
-            <dt className="w-20 shrink-0 text-muted">투자 함의</dt>
-            <dd>{item.investmentNote}</dd>
+          <Field label="투자 함의">{item.investmentNote}</Field>
+        ) : null}
+
+        {/* 자산군 함의는 이 제품이 내놓는 핵심이다. 세로선으로 도드라지게 둔다. */}
+        {item.implications.length > 0 ? (
+          <div className="mt-5 space-y-2.5 border-l border-line pl-4">
+            {item.implications.map((implication) => (
+              <div
+                key={implication.asset_class}
+                className="text-[15px] leading-[1.7]"
+              >
+                <span className="font-semibold">
+                  {assetClassLabel(implication.asset_class)}{" "}
+                  {DIRECTION[implication.direction]}
+                </span>
+                <span className="text-muted"> — {implication.note}</span>
+              </div>
+            ))}
           </div>
         ) : null}
-      </dl>
 
-      <a
-        href={item.sourceUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-4 inline-block text-sm text-muted underline underline-offset-4 hover:text-fg"
-      >
-        원문 보기
-      </a>
+        <a
+          href={item.sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-5 inline-block text-[13px] text-muted underline decoration-line underline-offset-4 hover:text-fg hover:decoration-fg"
+        >
+          {item.sourceName ?? "원문"} 원문 보기
+        </a>
+      </div>
     </article>
   );
 }
 
 /**
  * 한 부를 국내/해외로 나눠 그린다.
- * 구분은 작은 소제목 하나로만 한다. 카드나 색으로 나누지 않는다 (DESIGN.md).
+ * 번호는 부 전체에서 이어진다 — 그룹마다 1로 돌아가면 항목을 지칭할 수 없다.
  */
 function Part({
   title,
@@ -130,31 +133,30 @@ function Part({
   items: BriefingItem[];
   globalLabel: string;
 }) {
-  const groups = [
-    { key: "kr" as const, label: "국내" },
-    { key: "global" as const, label: globalLabel },
-  ]
-    .map((group) => ({
-      ...group,
-      items: items.filter((item) => item.region === group.key),
-    }))
-    .filter((group) => group.items.length > 0);
-
   if (items.length === 0) return null;
 
+  const kr = items.filter((item) => item.region === "kr");
+  const global = items.filter((item) => item.region === "global");
+  const groups = [
+    { key: "kr", label: "국내", items: kr, offset: 1 },
+    { key: "global", label: globalLabel, items: global, offset: kr.length + 1 },
+  ].filter((group) => group.items.length > 0);
+
   return (
-    <section className="mt-14">
-      <h2 className="text-lg font-semibold">{title}</h2>
+    <section className="mt-16">
+      <h2 className="text-[19px] font-semibold tracking-tight">{title}</h2>
       {groups.map((group) => (
-        <div key={group.key} className="mt-6">
-          <h3 className="text-sm font-medium tracking-wide text-muted">
+        <div key={group.key} className="mt-9">
+          <h3 className="border-b border-fg pb-2 text-[13px] font-semibold tracking-[0.08em]">
             {group.label}
           </h3>
-          <div className="mt-2">
-            {group.items.map((item, index) => (
-              <Row key={item.sourceUrl} item={item} index={index} />
-            ))}
-          </div>
+          {group.items.map((item, index) => (
+            <Row
+              key={item.sourceUrl}
+              item={item}
+              index={group.offset + index}
+            />
+          ))}
         </div>
       ))}
     </section>
@@ -171,21 +173,20 @@ export function BriefingBody({
   const past = archive.filter((date) => date !== view.date);
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-12">
-      <header className="flex items-baseline justify-between border-b border-line pb-6">
-        <h1 className="tabular text-2xl font-semibold tracking-tight">
-          {view.date} 브리핑
+    <main className="mx-auto w-full max-w-[46rem] flex-1 px-6 py-14 sm:px-8">
+      <header className="flex items-baseline justify-between">
+        <h1 className="tabular text-[26px] font-semibold tracking-tight">
+          {view.date}
         </h1>
         <Link
           href="/"
-          className="text-sm text-muted underline underline-offset-4 hover:text-fg"
+          className="text-[13px] text-muted underline underline-offset-4 hover:text-fg"
         >
           홈
         </Link>
       </header>
 
-      <section className="mt-8">
-        <h2 className="text-lg font-semibold">오늘의 온도</h2>
+      <section className="mt-8 border-t border-line pt-8">
         <Gauges view={view} />
       </section>
 
@@ -193,14 +194,16 @@ export function BriefingBody({
       <Part title="2부. 오늘의 세계" items={view.part2} globalLabel="국제" />
 
       {past.length > 0 ? (
-        <section className="mt-14 border-t border-line pt-8">
-          <h2 className="text-lg font-semibold">지난 브리핑</h2>
+        <section className="mt-20 border-t border-line pt-8">
+          <h2 className="text-[13px] font-semibold tracking-[0.08em] text-muted">
+            지난 브리핑
+          </h2>
           <ul className="mt-3">
             {past.map((date) => (
               <li key={date} className="border-b border-line">
                 <Link
                   href={`/briefing/${date}`}
-                  className="tabular block py-3 text-[15px] hover:bg-line/30"
+                  className="tabular block py-3.5 text-[15px] hover:text-muted"
                 >
                   {date}
                 </Link>

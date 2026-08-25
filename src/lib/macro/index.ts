@@ -7,7 +7,10 @@ import { fetchEcos } from "./ecos";
 import { fetchSeries, type Observation } from "./fred";
 
 /**
- * 오늘의 온도 — 4지표 (PRODUCT.md §4-A-1).
+ * 시장 상황 — 4지표 (PRODUCT.md §4-A-1).
+ *
+ * DB 컬럼명은 briefings.temperature_json 그대로 둔다. 화면 표기만 바뀐 것이고,
+ * 컬럼 이름을 바꾸려면 마이그레이션이 필요한데 얻는 게 없다.
  * 미 기준금리 · 원달러 환율 · VIX · 미 10년물. **지표 확장은 딥다이브에서 다룬 뒤에만.**
  *
  * 해석 문구는 코드가 만든다. 모델에게 맡기면 매일 표현이 흔들리고
@@ -124,7 +127,8 @@ async function buildGauges(): Promise<Collected> {
       value: top.value,
       // 정책금리는 매일 움직이지 않는다. 전일 대비 대신 마지막 변경을 note로 말한다.
       change: null,
-      note: direction ? `${changedAt!.date} 이후 동결 (직전 ${direction})` : null,
+      // "2025-12-10 인하 후 동결" — 두 정보를 한 줄에 담아 좁은 칸에서 안 깨지게.
+      note: direction ? `${changedAt!.date} ${direction} 후 동결` : null,
       asOf: isoOf(top.date),
       source: "fred",
     });

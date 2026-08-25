@@ -109,7 +109,7 @@ export function buildUserMessage(input: PromptInput): string {
 
   return `오늘 날짜: ${input.date}
 
-# 오늘의 온도
+# 시장 상황
 ${formatGauges(input.gauges)}${failed}
 
 # 1부 후보 (시장·경제)

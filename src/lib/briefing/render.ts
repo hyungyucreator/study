@@ -119,7 +119,7 @@ export function renderBriefing(options: {
   return [
     `# ${date} 브리핑`,
     "",
-    "## 오늘의 온도",
+    "## 시장 상황",
     "",
     renderGauges(gauges, failedGauges),
     "",
