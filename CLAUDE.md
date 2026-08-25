@@ -72,10 +72,10 @@
 ## 6. 작업 방식
 
 - **ROADMAP.md의 단계 순서를 엄수한다.** 한 번에 한 단계만. 다음 단계 기능을 미리 만들지 않는다 — 빈 폴더나 TODO 스텁도 만들지 않는다.
-- **현재 단계: 2단계 완료, 3단계(데일리 브리핑) 시작 지점.** 마지막 작업일 2026-08-25.
+- **현재 단계: 3단계(데일리 브리핑) 진행 중.** 마지막 작업일 2026-08-25.
   - 배포 https://study-phi-ten.vercel.app · GitHub hyungyucreator/study · Supabase ref `jmxlffgwlkmgnavzacqh`
   - **완료:** 1단계 전부 / 수동 자산 CRUD(`/holdings`) / KIS 연동(토큰 캐시 → 잔고조회 → 동기화) / 자산군 분류(실질 노출 기준 + `symbol_map`) / 스코프 축소 반영 / 시세 갱신(KIS 현재가 + 야후 + 원달러 환율, `raw_market` 10분 캐시)
-  - **다음 작업 (여기서 시작):** 3단계 데일리 브리핑 파이프라인. RSS 수집 → `raw_news` 저장부터. (2단계 완료. 총자산 추이 그래프는 `portfolio_snapshots`가 며칠 쌓인 뒤에 붙인다.)
+  - **다음 작업 (여기서 시작):** 매크로 수집(FRED·ECOS) → 오늘의 온도 4지표. 그다음 뉴스 사전 필터링 → 브리핑 생성. (RSS 수집 완료. 총자산 추이 그래프는 `portfolio_snapshots`가 며칠 쌓인 뒤에 붙인다.)
   - **DB 상태:** 마이그레이션 0001~0005 적용 완료. **0006(`portfolio_snapshots`)은 사용자가 Supabase SQL Editor에서 실행해야 한다.** holdings 9행(KIS 동기화분, 전부 KRW), symbol_map 9행.
   - **미검증:** 해외주식 잔고 매핑과 해외 시세·원화 환산 경로(USD 보유 0건이라 실물 확인 못 함. 필드명은 공식 샘플 기준, 값 없으면 건너뛰도록 방어적으로 작성).
   - **로컬 실행:** `npm run dev` → http://localhost:3000 (dev 스크립트가 `-H ::1`로 고정돼 있음)

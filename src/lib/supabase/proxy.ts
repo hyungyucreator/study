@@ -3,8 +3,11 @@ import { createServerClient } from "@supabase/ssr";
 
 import { getSupabaseEnv } from "./env";
 
-/** 인증 없이 접근 가능한 경로. */
-const PUBLIC_PATHS = ["/login", "/auth"];
+/**
+ * 인증 없이 접근 가능한 경로.
+ * /api/cron은 세션이 아니라 CRON_SECRET으로 스스로 인증한다 (크론은 쿠키가 없다).
+ */
+const PUBLIC_PATHS = ["/login", "/auth", "/api/cron"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some(
