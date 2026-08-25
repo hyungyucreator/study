@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getKisEnv } from "./env";
-import { getAccessToken } from "./token";
+import { kisGet, toNumber } from "./request";
 
 /**
  * 잔고조회 (읽기 전용).
@@ -28,56 +28,6 @@ export type BalanceResult = {
   cashKrw: number;
 };
 
-type KisResponse = {
-  rt_cd?: string;
-  msg1?: string;
-  msg_cd?: string;
-  output1?: Record<string, string>[];
-  output2?: Record<string, string>[] | Record<string, string>;
-};
-
-function toNumber(value: string | undefined) {
-  const parsed = Number(value ?? "");
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-async function request(
-  path: string,
-  trId: string,
-  params: Record<string, string>,
-  trCont: string,
-): Promise<{ body: KisResponse; nextTrCont: string }> {
-  const { appKey, appSecret, baseUrl } = getKisEnv();
-  const token = await getAccessToken();
-
-  const response = await fetch(`${baseUrl}${path}?${new URLSearchParams(params)}`, {
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`,
-      appkey: appKey,
-      appsecret: appSecret,
-      tr_id: trId,
-      tr_cont: trCont,
-      custtype: "P",
-    },
-    cache: "no-store",
-  });
-
-  const body = (await response.json()) as KisResponse;
-
-  if (!response.ok || (body.rt_cd && body.rt_cd !== "0")) {
-    throw new Error(
-      `KIS 조회 실패 (${response.status} ${body.msg_cd ?? ""}): ${
-        body.msg1?.trim() ?? "알 수 없는 오류"
-      }`,
-    );
-  }
-
-  // F/M = 다음 페이지 있음.
-  const header = response.headers.get("tr_cont") ?? "";
-  return { body, nextTrCont: header === "F" || header === "M" ? "N" : "" };
-}
-
 /** 국내주식 잔고. 실전계좌는 1회 50건이라 연속조회로 이어붙인다. */
 async function fetchDomestic() {
   const { cano, acntPrdtCd } = getKisEnv();
@@ -88,7 +38,7 @@ async function fetchDomestic() {
   let trCont = "";
 
   for (let page = 0; page < 10; page += 1) {
-    const { body, nextTrCont } = await request(
+    const { body, nextTrCont } = await kisGet(
       "/uapi/domestic-stock/v1/trading/inquire-balance",
       TR_DOMESTIC_BALANCE,
       {
@@ -145,7 +95,7 @@ async function fetchOverseas() {
   let trCont = "";
 
   for (let page = 0; page < 10; page += 1) {
-    const { body, nextTrCont } = await request(
+    const { body, nextTrCont } = await kisGet(
       "/uapi/overseas-stock/v1/trading/inquire-balance",
       TR_OVERSEAS_BALANCE,
       {

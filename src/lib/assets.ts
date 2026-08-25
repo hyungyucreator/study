@@ -73,3 +73,73 @@ export function formatMoney(value: number, currency: Currency) {
 export function formatQty(value: number) {
   return value.toLocaleString("ko-KR", { maximumFractionDigits: 8 });
 }
+
+/** 평가금액 = 수량 × 현재가. 통화 환산은 하지 않는다. */
+export function marketValue(
+  holding: Pick<Holding, "qty">,
+  price: number,
+) {
+  return holding.qty * price;
+}
+
+/** 평가손익 (표시통화 기준). 평단이 0이면 손익 개념이 없다. */
+export function profit(
+  holding: Pick<Holding, "qty" | "avg_price">,
+  price: number,
+) {
+  if (holding.avg_price <= 0) return 0;
+  return (price - holding.avg_price) * holding.qty;
+}
+
+/** 수익률. 평단이 0(현금 등)이면 null — 0%로 표시하면 착시가 생긴다. */
+export function returnRate(
+  holding: Pick<Holding, "avg_price">,
+  price: number,
+): number | null {
+  if (holding.avg_price <= 0) return null;
+  return (price - holding.avg_price) / holding.avg_price;
+}
+
+/** 표시통화 금액을 원화로 환산한다. 환율이 없으면 null. */
+export function toKrw(
+  value: number,
+  currency: Currency,
+  usdKrw: number | null,
+): number | null {
+  if (currency === "KRW") return value;
+  if (usdKrw === null) return null;
+  return value * usdKrw;
+}
+
+/** 부호를 붙인 퍼센트. 소수 첫째 자리까지. */
+export function formatPercent(rate: number) {
+  const sign = rate > 0 ? "+" : "";
+  return `${sign}${(rate * 100).toFixed(1)}%`;
+}
+
+/** 부호를 붙인 금액. */
+export function formatSignedMoney(value: number, currency: Currency) {
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${sign}${formatMoney(Math.abs(value), currency)}`;
+}
+
+/**
+ * 손익 색. 이 제품에서 적색은 수익, 청색은 손실이다 (DESIGN.md).
+ * 보합은 색을 쓰지 않는다.
+ */
+export function pnlClass(value: number) {
+  if (value > 0) return "text-gain";
+  if (value < 0) return "text-loss";
+  return "";
+}
+
+/** "14:32 기준"처럼 관측 시각을 짧게. */
+export function formatAsOf(iso: string) {
+  return new Date(iso).toLocaleString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

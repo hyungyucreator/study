@@ -52,6 +52,8 @@
 -- 공용
 raw_news(id, source, url, title, lead, published_at, fetched_at, category)
 raw_market(id, symbol, kind, value, as_of, source)
+-- 포트폴리오 시세 캐시도 이 테이블을 쓴다. kind='price'(종목 현재가), kind='fx'(symbol='USDKRW').
+-- as_of는 제공자의 체결시각이 아니라 우리가 관측한 시각이다 (장 마감 후 캐시 신선도 판단용).
 briefings(id, date, type[daily|event], body_md, temperature_json, created_at)
 briefing_news(briefing_id, raw_news_id, fact, surprise, implication_json, source_url)
 events_calendar(id, name, scheduled_at, kind, importance)
