@@ -75,7 +75,7 @@
 - **현재 단계: 3단계(데일리 브리핑) 진행 중.** 마지막 작업일 2026-08-25.
   - 배포 https://study-phi-ten.vercel.app · GitHub hyungyucreator/study · Supabase ref `jmxlffgwlkmgnavzacqh`
   - **완료:** 1단계 전부 / 수동 자산 CRUD(`/holdings`) / KIS 연동(토큰 캐시 → 잔고조회 → 동기화) / 자산군 분류(실질 노출 기준 + `symbol_map`) / 스코프 축소 반영 / 시세 갱신(KIS 현재가 + 야후 + 원달러 환율, `raw_market` 10분 캐시)
-  - **다음 작업 (여기서 시작):** 브리핑 생성 — Sonnet + 프롬프트 캐싱 + 배치 제출/회수/폴백. 입력은 `selectNews()` 결과 20묶음 + `collectMacro()` 온도 4지표. (수집·선별 완료. 총자산 추이 그래프는 `portfolio_snapshots`가 며칠 쌓인 뒤에 붙인다.)
+  - **다음 작업 (여기서 시작):** 브리핑 뷰(`/briefing`) + 아카이브. 그다음 배치 API 제출/회수/폴백, 헬스체크·텔레그램 알림. (수집·선별·생성 완료. 총자산 추이 그래프는 `portfolio_snapshots`가 며칠 쌓인 뒤에 붙인다.)
   - **DB 상태:** 마이그레이션 0001~0005 적용 완료. **0006(`portfolio_snapshots`)은 사용자가 Supabase SQL Editor에서 실행해야 한다.** holdings 9행(KIS 동기화분, 전부 KRW), symbol_map 9행.
   - **미검증:** 해외주식 잔고 매핑과 해외 시세·원화 환산 경로(USD 보유 0건이라 실물 확인 못 함. 필드명은 공식 샘플 기준, 값 없으면 건너뛰도록 방어적으로 작성).
   - **로컬 실행:** `npm run dev` → http://localhost:3000 (dev 스크립트가 `-H ::1`로 고정돼 있음)
