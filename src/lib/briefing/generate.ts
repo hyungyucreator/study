@@ -33,7 +33,7 @@ function kstDate(): string {
 
 const ASSET_CLASS_SET = new Set<string>(IMPLICATION_ASSET_CLASSES);
 
-type SourceRef = { id: string; source: string };
+type SourceRef = { id: string; source: string; region: "kr" | "global" };
 
 /**
  * 모델 출력 검증.
@@ -75,7 +75,12 @@ function urlMap(clusters: Cluster[]): Map<string, SourceRef> {
   const map = new Map<string, SourceRef>();
   for (const cluster of clusters) {
     for (const item of [cluster.lead_item, ...cluster.others]) {
-      map.set(item.url, { id: item.id, source: item.source });
+      // region은 모델이 아니라 코드가 정한다 (region.ts). 묶음 단위로 같다.
+      map.set(item.url, {
+        id: item.id,
+        source: item.source,
+        region: cluster.region,
+      });
     }
   }
   return map;
@@ -144,11 +149,16 @@ export async function generateBriefing(
   const allowed = urlMap([...selection.part1, ...selection.part2]);
   const { payload, dropped } = validate(data, allowed);
 
+  const regions = new Map(
+    [...allowed].map(([url, ref]) => [url, ref.region] as const),
+  );
+
   const bodyMd = renderBriefing({
     date,
     gauges: temperature.gauges,
     failedGauges: temperature.failed,
     payload,
+    regions,
   });
 
   if (options.dryRun) {
@@ -204,7 +214,11 @@ export async function generateBriefing(
       headline: item.headline,
       fact: item.fact,
       surprise: item.surprise,
-      implication_json: { part: 1, implications: item.implications },
+      implication_json: {
+        part: 1,
+        region: allowed.get(item.source_url)?.region ?? "kr",
+        implications: item.implications,
+      },
       source_url: item.source_url,
       position: index,
     })),
@@ -216,6 +230,7 @@ export async function generateBriefing(
       surprise: null,
       implication_json: {
         part: 2,
+        region: allowed.get(item.source_url)?.region ?? "kr",
         context: item.context,
         outlook: item.outlook,
         investment_note: item.investment_note,

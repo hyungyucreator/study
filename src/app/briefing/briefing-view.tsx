@@ -117,6 +117,50 @@ function Row({ item, index }: { item: BriefingItem; index: number }) {
   );
 }
 
+/**
+ * 한 부를 국내/해외로 나눠 그린다.
+ * 구분은 작은 소제목 하나로만 한다. 카드나 색으로 나누지 않는다 (DESIGN.md).
+ */
+function Part({
+  title,
+  items,
+  globalLabel,
+}: {
+  title: string;
+  items: BriefingItem[];
+  globalLabel: string;
+}) {
+  const groups = [
+    { key: "kr" as const, label: "국내" },
+    { key: "global" as const, label: globalLabel },
+  ]
+    .map((group) => ({
+      ...group,
+      items: items.filter((item) => item.region === group.key),
+    }))
+    .filter((group) => group.items.length > 0);
+
+  if (items.length === 0) return null;
+
+  return (
+    <section className="mt-14">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      {groups.map((group) => (
+        <div key={group.key} className="mt-6">
+          <h3 className="text-sm font-medium tracking-wide text-muted">
+            {group.label}
+          </h3>
+          <div className="mt-2">
+            {group.items.map((item, index) => (
+              <Row key={item.sourceUrl} item={item} index={index} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export function BriefingBody({
   view,
   archive,
@@ -145,23 +189,8 @@ export function BriefingBody({
         <Gauges view={view} />
       </section>
 
-      <section className="mt-14">
-        <h2 className="text-lg font-semibold">1부. 시장과 경제</h2>
-        <div className="mt-4">
-          {view.part1.map((item, index) => (
-            <Row key={item.sourceUrl} item={item} index={index} />
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-14">
-        <h2 className="text-lg font-semibold">2부. 오늘의 세계</h2>
-        <div className="mt-4">
-          {view.part2.map((item, index) => (
-            <Row key={item.sourceUrl} item={item} index={index} />
-          ))}
-        </div>
-      </section>
+      <Part title="1부. 시장과 경제" items={view.part1} globalLabel="해외" />
+      <Part title="2부. 오늘의 세계" items={view.part2} globalLabel="국제" />
 
       {past.length > 0 ? (
         <section className="mt-14 border-t border-line pt-8">

@@ -20,7 +20,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const window = await briefingWindow();
+    // 생성 라우트와 같은 구간을 봐야 미리보기가 의미가 있다.
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Seoul",
+    });
+    const window = await briefingWindow(today);
     const candidates = await loadCandidates(window);
     // 임계값을 흔들어보며 묶음 품질을 눈으로 확인하는 손잡이.
     const scale = Number(request.nextUrl.searchParams.get("scale") ?? "1");
@@ -32,6 +36,7 @@ export async function GET(request: NextRequest) {
       title: cluster.lead_item.title,
       source: cluster.lead_item.source,
       category: cluster.lead_item.category,
+      region: cluster.region,
       sourceCount: cluster.sourceCount,
       score: Number(cluster.score.toFixed(1)),
       published_at: cluster.lead_item.published_at,

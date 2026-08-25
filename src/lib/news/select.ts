@@ -8,6 +8,8 @@
  * 같은 사건을 여러 매체가 쓰면 그날의 중요한 사건이라는 뜻이다.
  */
 
+import { regionOf, type Region } from "./region";
+
 export type Candidate = {
   id: string;
   source: string;
@@ -27,12 +29,45 @@ export type Cluster = {
   sourceCount: number;
   score: number;
   part: 1 | 2;
+  /** 사건의 무대. 매체 국적이 아니다 (region.ts). */
+  region: Region;
 };
 
 export type Selection = {
   part1: Cluster[];
   part2: Cluster[];
 };
+
+/** 국내/글로벌 어느 한쪽이 한 부를 다 차지하지 않게 반씩 확보한 뒤 점수로 채운다. */
+function balanceRegions(
+  pool: Cluster[],
+  limit: number,
+  maxPerCategory: number,
+  minPerCategory = 0,
+): Cluster[] {
+  const half = Math.ceil(limit / 2);
+  const picked = new Set<Cluster>();
+
+  for (const region of ["kr", "global"] as const) {
+    const side = pool.filter((item) => item.region === region);
+    for (const item of withQuota(side, half, maxPerCategory, minPerCategory)) {
+      picked.add(item);
+    }
+  }
+
+  // 한쪽이 부족하면 남은 자리를 점수 순으로 채운다.
+  for (const item of pool) {
+    if (picked.size >= limit) break;
+    picked.add(item);
+  }
+
+  const chosen = pool.filter((item) => picked.has(item)).slice(0, limit);
+  // 국내 먼저, 그 안에서 점수 순. 화면 순서와 프롬프트 순서를 맞춘다.
+  return chosen.sort((a, b) => {
+    if (a.region !== b.region) return a.region === "kr" ? -1 : 1;
+    return b.score - a.score;
+  });
+}
 
 const PART1_CATEGORIES = new Set(["market", "economy"]);
 
@@ -73,6 +108,8 @@ const PART2_KEYWORDS = [
 const NOISE_TAGS = [
   "게시판", "부고", "인사", "동정", "신간", "알림", "특징주", "바이오스냅",
   "표", "포토", "영상", "사진", "오늘의", "운세", "주간", "재송",
+  // 시그널·헤드라인 묶음 기사. 앞의 것은 개별 종목 매수신호라 특히 실으면 안 된다.
+  "시그널", "헤드라인", "브리핑", "차트", "포착",
 ];
 
 /** 지역 행정 공지에 흔한 말. 단독 보도일 때만 걸러낸다. */
@@ -435,6 +472,12 @@ export function selectNews(
       sourceCount,
       score: crossSource + topical + freshness + usable,
       part,
+      region: regionOf({
+        category: leadItem.category,
+        title: leadItem.title,
+        lead: leadItem.lead,
+        isEnglish: fingerprint(leadItem.title)?.lang === "en",
+      }),
     };
   });
 
@@ -446,16 +489,16 @@ export function selectNews(
   usable.sort((a, b) => b.score - a.score);
 
   return {
-    part1: withQuota(
+    part1: balanceRegions(
       usable.filter((item) => item.part === 1),
       part1Limit,
       Math.ceil(part1Limit * 0.7),
     ),
-    part2: withQuota(
+    part2: balanceRegions(
       usable.filter((item) => item.part === 2),
       part2Limit,
       Math.ceil(part2Limit * 0.4),
-      2,
+      1,
     ),
   };
 }

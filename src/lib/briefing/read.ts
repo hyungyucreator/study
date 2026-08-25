@@ -16,6 +16,8 @@ import type { Implication } from "./schema";
 
 export type BriefingItem = {
   headline: string | null;
+  /** 사건의 무대. 화면에서 국내/해외를 나누는 축이다. */
+  region: "kr" | "global";
   fact: string;
   surprise: string | null;
   sourceUrl: string;
@@ -43,6 +45,7 @@ type NewsRow = {
   position: number;
   implication_json: {
     part?: number;
+    region?: "kr" | "global";
     implications?: Implication[];
     context?: string;
     outlook?: string;
@@ -54,6 +57,7 @@ function toItem(row: NewsRow): BriefingItem {
   const meta = row.implication_json ?? {};
   return {
     headline: row.headline,
+    region: meta.region === "global" ? "global" : "kr",
     fact: row.fact,
     surprise: row.surprise,
     sourceUrl: row.source_url,
