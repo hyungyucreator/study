@@ -200,6 +200,7 @@ export async function generateBriefing(
     ...payload.part1.map((item, index) => ({
       briefing_id: briefingId,
       raw_news_id: allowed.get(item.source_url)?.id ?? null,
+      headline: item.headline,
       fact: item.fact,
       surprise: item.surprise,
       implication_json: { part: 1, implications: item.implications },
@@ -209,6 +210,7 @@ export async function generateBriefing(
     ...payload.part2.map((item, index) => ({
       briefing_id: briefingId,
       raw_news_id: allowed.get(item.source_url)?.id ?? null,
+      headline: item.headline,
       fact: item.fact,
       surprise: null,
       implication_json: {
