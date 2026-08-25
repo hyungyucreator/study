@@ -2,7 +2,6 @@ import Link from "next/link";
 
 import {
   ASSET_CLASSES,
-  bookValue,
   formatAsOf,
   formatMoney,
   formatPercent,
@@ -12,10 +11,8 @@ import {
   pnlClass,
   profit,
   returnRate,
-  toKrw,
-  type Holding,
 } from "@/lib/assets";
-import { getQuotes } from "@/lib/quotes";
+import { loadPortfolio } from "@/lib/portfolio";
 import { createClient } from "@/lib/supabase/server";
 
 import { createHolding } from "./actions";
@@ -27,50 +24,18 @@ export const metadata = { title: "보유자산 — 투자 데스크" };
 export default async function HoldingsPage() {
   const supabase = await createClient();
 
-  // RLS가 내 행만 돌려준다 (0001_init.sql: holdings_select_own).
-  const { data, error } = await supabase
-    .from("holdings")
-    .select(
-      "id, source, symbol, name, asset_class, is_etf, qty, avg_price, currency, updated_at",
-    )
-    .order("asset_class")
-    .order("name");
-
-  const holdings = (data ?? []) as Holding[];
-
-  const { quotes, fx, missing } = await getQuotes(supabase, holdings);
-  const usdKrw = fx?.usdKrw ?? null;
-
-  // 원화 환산 합계. 시세나 환율이 없는 종목은 합계에서 뺀다.
-  let totalKrw = 0;
-  let bookKrw = 0;
-  let excluded = 0;
-
-  for (const holding of holdings) {
-    const price = quotes.get(holding.symbol)?.price;
-    if (price === undefined) {
-      excluded += 1;
-      continue;
-    }
-    const mv = toKrw(marketValue(holding, price), holding.currency, usdKrw);
-    const bv = toKrw(bookValue(holding), holding.currency, usdKrw);
-    if (mv === null || bv === null) {
-      excluded += 1;
-      continue;
-    }
-    totalKrw += mv;
-    bookKrw += bv;
-  }
-
-  const totalProfit = totalKrw - bookKrw;
-  const totalRate = bookKrw > 0 ? totalProfit / bookKrw : null;
-
-  // 표시 기준 시각은 관측치 중 가장 오래된 것. 가장 늦게 갱신된 값이 신뢰 한계다.
-  const asOfList = [...quotes.values()]
-    .filter((quote) => quote.source !== "cash")
-    .map((quote) => quote.asOf)
-    .sort();
-  const asOf = asOfList[0];
+  // 집계는 홈 대시보드와 같은 계산을 쓴다 (src/lib/portfolio.ts).
+  const {
+    holdings,
+    quotes,
+    usdKrw,
+    totalKrw,
+    profitKrw,
+    rate,
+    excluded,
+    missing,
+    asOf,
+  } = await loadPortfolio(supabase);
 
   const grouped = ASSET_CLASSES.map((assetClass) => ({
     ...assetClass,
@@ -89,10 +54,6 @@ export default async function HoldingsPage() {
         </Link>
       </header>
 
-      {error ? (
-        <p className="mt-6 text-[15px]">불러오지 못했다. {error.message}</p>
-      ) : null}
-
       <section className="mt-8">
         {holdings.length === 0 ? (
           <p className="text-[15px] text-muted">등록된 자산이 없다.</p>
@@ -102,12 +63,9 @@ export default async function HoldingsPage() {
             <div className="tabular mt-1 text-3xl font-semibold">
               {formatMoney(totalKrw, "KRW")}
             </div>
-            <div className="mt-2 flex flex-wrap items-baseline gap-x-6 gap-y-1 text-[15px]">
-              <span className="text-sm text-muted">매입 {formatMoney(bookKrw, "KRW")}</span>
-              <span className={`tabular ${pnlClass(totalProfit)}`}>
-                {formatSignedMoney(totalProfit, "KRW")}
-                {totalRate !== null ? ` (${formatPercent(totalRate)})` : null}
-              </span>
+            <div className={`tabular mt-2 text-[15px] ${pnlClass(profitKrw)}`}>
+              {formatSignedMoney(profitKrw, "KRW")}
+              {rate !== null ? ` (${formatPercent(rate)})` : null}
             </div>
 
             <p className="mt-3 text-sm text-muted">
@@ -210,7 +168,7 @@ export default async function HoldingsPage() {
                           href={`/holdings/${holding.id}`}
                           className="text-sm text-muted underline underline-offset-4 hover:text-fg"
                         >
-                          수정
+                          {holding.source === "kis" ? "분류" : "수정"}
                         </Link>
                       </td>
                     </tr>

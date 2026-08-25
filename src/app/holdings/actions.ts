@@ -189,3 +189,47 @@ export async function syncFromKis(
     };
   }
 }
+
+/**
+ * KIS 동기화 항목은 수량·평단을 고쳐도 다음 동기화에 덮어써진다.
+ * 사용자가 실제로 바꿀 수 있는 것은 분류뿐이므로 그것만 받는다.
+ */
+export async function updateClassification(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const id = String(formData.get("id") ?? "");
+  const assetClass = String(formData.get("asset_class") ?? "");
+  const isEtf = formData.get("is_etf") === "on";
+
+  if (!id) return { error: "대상을 찾을 수 없다." };
+  if (!isAssetClass(assetClass)) return { error: "자산군을 선택할 것." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "로그인이 필요하다." };
+
+  const { data, error } = await supabase
+    .from("holdings")
+    .update({ asset_class: assetClass, is_etf: isEtf })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("symbol, name")
+    .maybeSingle();
+
+  if (error) return { error: `저장 실패: ${error.message}` };
+  if (!data) return { error: "대상을 찾을 수 없다." };
+
+  // 다음 동기화부터 이 분류가 쓰이도록 사실 테이블에 남긴다.
+  await rememberClassification({
+    symbol: data.symbol,
+    name: data.name,
+    assetClass: assetClass as never,
+    isEtf,
+  });
+
+  revalidatePath("/holdings");
+  redirect("/holdings");
+}
