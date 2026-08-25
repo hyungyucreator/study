@@ -12,11 +12,11 @@ import { Nav } from "./nav";
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <>
-      <header className="sticky top-0 z-10 border-b border-line bg-bg">
-        <div className="mx-auto flex h-14 w-full max-w-page items-center justify-between gap-6 px-5 sm:px-8">
+      <header className="sticky top-0 z-10 border-b border-line-strong bg-bg">
+        <div className="mx-auto flex h-16 w-full max-w-page items-center justify-between gap-6 px-5 sm:px-8">
           <Link
             href="/"
-            className="text-subhead tracking-tight whitespace-nowrap"
+            className="font-serif text-heading text-ink whitespace-nowrap"
           >
             투자 데스크
           </Link>
@@ -26,7 +26,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
           <form action="/auth/signout" method="post" className="ml-auto">
             <button
               type="submit"
-              className="text-label whitespace-nowrap hover:text-fg"
+              className="label whitespace-nowrap hover:text-ink"
             >
               로그아웃
             </button>

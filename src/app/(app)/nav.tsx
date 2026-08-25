@@ -27,8 +27,8 @@ export function Nav() {
             aria-current={active ? "page" : undefined}
             className={
               active
-                ? "text-small font-semibold underline decoration-fg underline-offset-[6px]"
-                : "text-small text-muted hover:text-fg"
+                ? "text-subhead text-ink underline decoration-ink decoration-2 underline-offset-[7px]"
+                : "text-subhead text-faint hover:text-ink"
             }
           >
             {item.label}

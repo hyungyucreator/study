@@ -35,11 +35,11 @@ export default async function EditHoldingPage({
       <header>
         <Link
           href="/holdings"
-          className="label underline decoration-line underline-offset-4 hover:text-fg"
+          className="label underline decoration-line-strong underline-offset-4 hover:text-ink"
         >
           보유자산으로
         </Link>
-        <h1 className="text-title mt-3">
+        <h1 className="font-serif text-title mt-3">
           {isKis ? "분류 수정" : "자산 수정"}
         </h1>
       </header>
@@ -76,7 +76,7 @@ export default async function EditHoldingPage({
             <input type="hidden" name="id" value={holding.id} />
             <button
               type="submit"
-              className="label underline decoration-line underline-offset-4 hover:text-fg"
+              className="label underline decoration-line-strong underline-offset-4 hover:text-ink"
             >
               이 자산 삭제
             </button>

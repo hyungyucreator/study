@@ -31,8 +31,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   return (
     <main className="mx-auto flex w-full max-w-form flex-1 flex-col justify-center px-5 py-16 sm:px-8">
-      <h1 className="text-title">투자 데스크</h1>
-      <p className="mt-2 text-small text-muted">
+      <h1 className="font-serif text-display">투자 데스크</h1>
+      <p className="mt-3 text-small text-muted">
         매일 10분 브리핑과 자산배분 관리.
       </p>
 

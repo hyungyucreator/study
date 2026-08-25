@@ -31,7 +31,7 @@ export default async function Home() {
   const deposited = previous ? portfolio.bookKrw - previous.book_krw : null;
 
   const headlines = briefing
-    ? [...briefing.part1, ...briefing.part2].slice(0, 4)
+    ? [...briefing.part1, ...briefing.part2].slice(0, 6)
     : [];
 
   return (
@@ -43,7 +43,7 @@ export default async function Home() {
       ) : (
         <section>
           <h1 className="label">총자산</h1>
-          <p className="text-display tabular mt-2">
+          <p className="text-display tabular text-ink mt-2">
             {formatMoney(portfolio.totalKrw, "KRW")}
           </p>
           <p
@@ -64,7 +64,7 @@ export default async function Home() {
             </p>
           ) : null}
 
-          <p className="label mt-3">
+          <p className="label mt-4">
             {portfolio.asOf ? `${formatAsOf(portfolio.asOf)} 기준` : "시세 없음"}
             {portfolio.usdKrw !== null
               ? ` · 원달러 ${portfolio.usdKrw.toLocaleString("ko-KR", {
@@ -78,7 +78,45 @@ export default async function Home() {
         </section>
       )}
 
-      <div className="mt-14 gap-12 lg:flex lg:items-start">
+      {briefing && briefing.gauges.length > 0 ? (
+        <section className="mt-12 border-y border-line-strong">
+          <h2 className="sr-only">시장 상황</h2>
+          <dl className="grid grid-cols-2 md:grid-cols-4">
+            {briefing.gauges.map((gauge, index) => (
+              <div
+                key={gauge.key}
+                className={[
+                  "border-line px-1 py-5",
+                  index % 2 === 0 ? "border-r md:border-r" : "",
+                  index === 3 ? "md:border-r-0" : "",
+                  index > 1 ? "border-t md:border-t-0" : "",
+                  index > 0 ? "md:pl-6" : "",
+                ].join(" ")}
+              >
+                <dt className="label">{gauge.label}</dt>
+                <dd className="tabular mt-1.5 flex items-baseline gap-2">
+                  <span className="text-title text-ink">{gauge.display}</span>
+                  {gauge.change !== null && gauge.change !== 0 ? (
+                    <span
+                      className={`text-small font-semibold ${
+                        gauge.change > 0 ? "text-gain" : "text-loss"
+                      }`}
+                    >
+                      {gauge.change > 0 ? "+" : ""}
+                      {gauge.change}
+                    </span>
+                  ) : null}
+                </dd>
+                {gauge.note ? (
+                  <dd className="label mt-1.5">{gauge.note}</dd>
+                ) : null}
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
+
+      <div className="mt-14 gap-14 lg:flex lg:items-start">
         {portfolio.byClass.length > 0 ? (
           <section className="lg:w-[22rem] lg:shrink-0">
             <h2 className="label">자산군 비중</h2>
@@ -89,7 +127,7 @@ export default async function Home() {
                   className="border-t border-line px-4 py-3.5 first:border-t-0"
                 >
                   <div className="flex items-baseline justify-between gap-4">
-                    <span className="text-subhead">{slice.label}</span>
+                    <span className="text-subhead text-ink">{slice.label}</span>
                     <span className="tabular text-small">
                       {(slice.weight * 100).toFixed(1)}%
                       <span className="ml-2.5 text-label text-muted">
@@ -98,9 +136,9 @@ export default async function Home() {
                     </span>
                   </div>
                   {/* 비중은 길이로만 나타낸다. 자산군에 색을 주지 않는다. */}
-                  <div className="mt-2.5 h-0.5 w-full bg-line">
+                  <div className="mt-2.5 h-0.5 w-full bg-line-strong">
                     <div
-                      className="h-0.5 bg-fg"
+                      className="h-0.5 bg-ink"
                       style={{ width: `${(slice.weight * 100).toFixed(1)}%` }}
                     />
                   </div>
@@ -109,7 +147,7 @@ export default async function Home() {
             </ul>
             <Link
               href="/holdings"
-              className="label mt-3 inline-block underline decoration-line underline-offset-4 hover:text-fg hover:decoration-fg"
+              className="label mt-3 inline-block underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
             >
               종목별 보기
             </Link>
@@ -132,12 +170,12 @@ export default async function Home() {
                   <li key={item.sourceUrl} className="border-b border-line">
                     <Link
                       href="/briefing"
-                      className="flex items-baseline gap-3 py-3.5 hover:text-muted"
+                      className="flex items-baseline gap-3 py-4 hover:opacity-70"
                     >
                       <span className="label shrink-0">
                         {item.region === "kr" ? "국내" : "해외"}
                       </span>
-                      <span className="text-subhead">
+                      <span className="font-serif text-heading text-ink">
                         {item.headline ?? item.fact.slice(0, 30)}
                       </span>
                     </Link>
@@ -146,7 +184,7 @@ export default async function Home() {
               </ul>
               <Link
                 href="/briefing"
-                className="label mt-3 inline-block underline decoration-line underline-offset-4 hover:text-fg hover:decoration-fg"
+                className="label mt-3 inline-block underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
               >
                 브리핑 전체 읽기
               </Link>

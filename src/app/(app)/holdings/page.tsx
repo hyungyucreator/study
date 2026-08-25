@@ -52,7 +52,7 @@ function Pnl({
 function Name({ holding }: { holding: Holding }) {
   return (
     <>
-      <span className="text-subhead">{holding.name}</span>
+      <span className="text-subhead text-ink">{holding.name}</span>
       <span className="tabular ml-2 text-label text-muted">
         {holding.symbol}
       </span>
@@ -94,7 +94,7 @@ export default async function HoldingsPage() {
           <p className="mt-3 text-small text-muted">등록된 자산이 없다.</p>
         ) : (
           <>
-            <p className="text-display tabular mt-2">
+            <p className="text-display tabular text-ink mt-2">
               {formatMoney(totalKrw, "KRW")}
             </p>
             <p className={`tabular text-subhead mt-2 ${pnlClass(profitKrw)}`}>
@@ -124,7 +124,7 @@ export default async function HoldingsPage() {
 
       {grouped.map((group) => (
         <section key={group.value} className="mt-14">
-          <h2 className="label border-b border-line pb-2">{group.label}</h2>
+          <h2 className="label border-b border-line-strong pb-2">{group.label}</h2>
 
           {/* 모바일: 행 단위 스택. 표를 가로로 스크롤하게 두지 않는다. */}
           <ul className="md:hidden">
@@ -141,7 +141,7 @@ export default async function HoldingsPage() {
                     </div>
                     <Link
                       href={`/holdings/${holding.id}`}
-                      className="label shrink-0 underline decoration-line underline-offset-4 hover:text-fg"
+                      className="label shrink-0 underline decoration-line-strong underline-offset-4 hover:text-ink"
                     >
                       {holding.source === "kis" ? "분류" : "수정"}
                     </Link>
@@ -227,7 +227,7 @@ export default async function HoldingsPage() {
                     <td className="py-3.5 pl-4 text-right">
                       <Link
                         href={`/holdings/${holding.id}`}
-                        className="label underline decoration-line underline-offset-4 hover:text-fg"
+                        className="label underline decoration-line-strong underline-offset-4 hover:text-ink"
                       >
                         {holding.source === "kis" ? "분류" : "수정"}
                       </Link>
@@ -240,8 +240,8 @@ export default async function HoldingsPage() {
         </section>
       ))}
 
-      <section className="mt-20 max-w-form border-t border-line pt-8">
-        <h2 className="text-heading">자산 추가</h2>
+      <section className="mt-24 max-w-form border-t border-line-strong pt-8">
+        <h2 className="font-serif text-title text-ink">자산 추가</h2>
         <p className="mt-2 mb-7 text-small text-muted">
           한국투자증권 계좌는 KIS 동기화로 자동 반영된다. 여기에는 타
           증권사와 연금계좌를 직접 입력한다.

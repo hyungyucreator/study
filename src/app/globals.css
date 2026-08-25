@@ -6,62 +6,81 @@
  * 규칙 하나: 화면에서 임의값을 쓰지 않는다.
  * text-[17px] 같은 값이 흩어지면 위계가 무너진다. 여기 없는 크기는 쓸 수 없다.
  *
- * 무채색 + 수익(적)/손실(청) 2색만 쓴다. 그라데이션과 기타 유채색은 금지.
- * 다크모드는 ROADMAP 추후 검토 항목이라 prefers-color-scheme 대응을 넣지 않는다.
- * 다만 색을 전부 토큰으로 빼두어 나중에 값만 갈아끼울 수 있게 한다.
+ * 색은 무채색 + 방향색(적/청) 둘뿐이다. 다만 무채색을 4단계로 쓴다.
+ * 단계가 둘뿐이면 위계를 색이 아니라 크기로만 만들어야 해서 화면이 평평해진다.
  */
 @theme {
-  --color-bg: #ffffff;
-  /* 면 분리용. 배경과 구분되는 최소한의 한 단계. 카드나 그림자를 대신한다. */
-  --color-surface: #fafafa;
-  --color-fg: #111111;
-  --color-muted: #6b7280;
-  --color-line: #e5e7eb;
+  /* 순백은 "아직 디자인하지 않음"으로 읽힌다. 따뜻한 종이 쪽으로 살짝 민다. */
+  --color-bg: #fcfcfa;
+  --color-surface: #f5f4f1;
 
-  /* 국내 관습: 수익 적, 손실 청 */
+  /* 잉크 4단계. 제목, 본문, 보조, 흐림. */
+  --color-ink: #0a0a0a;
+  --color-fg: #1f2023;
+  --color-muted: #55585e;
+  --color-faint: #8a8f98;
+
+  /* 선 2단계. 구조를 나누는 선과 항목을 나누는 선은 무게가 달라야 한다. */
+  --color-line: #e4e3de;
+  --color-line-strong: #cfcec8;
+
+  /*
+   * 방향색. 국내 관습으로 적이 상방, 청이 하방이다.
+   * 손익뿐 아니라 지표 변화와 자산군 방향에도 쓴다.
+   * 이 둘 말고 유채색을 더하지 않는다. 색이 두 가지를 뜻하는 순간
+   * 적과 청이 방향으로 안 읽힌다.
+   */
   --color-gain: #dc2626;
   --color-loss: #2563eb;
 
   --font-sans: var(--font-pretendard), system-ui, -apple-system, "Segoe UI",
     sans-serif;
+  /* 브리핑 제목 전용(font-serif 유틸로 쓴다). 본문과 숫자에는 쓰지 않는다. */
+  --font-serif: var(--font-serif-kr), "Apple SD Gothic Neo", serif;
 
   /*
-   * 타이포 스케일 7단계.
+   * 타이포 스케일.
    * 큰 글자는 자간을 좁힌다. 한글은 크게 키우면 자간이 벌어져 보인다.
    */
-  --text-display: 2.125rem;
-  --text-display--line-height: 1.15;
-  --text-display--letter-spacing: -0.022em;
-  --text-display--font-weight: 600;
+  --text-display: 2.75rem;
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.03em;
+  --text-display--font-weight: 700;
 
-  --text-title: 1.5rem;
-  --text-title--line-height: 1.3;
-  --text-title--letter-spacing: -0.018em;
-  --text-title--font-weight: 600;
+  --text-title: 1.75rem;
+  --text-title--line-height: 1.25;
+  --text-title--letter-spacing: -0.025em;
+  --text-title--font-weight: 700;
 
-  --text-heading: 1.1875rem;
+  /* 각 부의 첫 기사 전용. 편집이란 무엇을 크게 둘지 정하는 일이다. */
+  --text-lead: 1.625rem;
+  --text-lead--line-height: 1.35;
+  --text-lead--letter-spacing: -0.022em;
+  --text-lead--font-weight: 600;
+
+  --text-heading: 1.3125rem;
   --text-heading--line-height: 1.4;
-  --text-heading--letter-spacing: -0.01em;
+  --text-heading--letter-spacing: -0.015em;
   --text-heading--font-weight: 600;
 
   --text-subhead: 0.9375rem;
   --text-subhead--line-height: 1.45;
   --text-subhead--font-weight: 600;
 
-  --text-body: 1rem;
-  --text-body--line-height: 1.75;
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.8;
 
   --text-small: 0.875rem;
-  --text-small--line-height: 1.65;
+  --text-small--line-height: 1.7;
 
-  --text-label: 0.75rem;
+  --text-label: 0.6875rem;
   --text-label--line-height: 1.5;
-  --text-label--letter-spacing: 0.06em;
-  --text-label--font-weight: 500;
+  --text-label--letter-spacing: 0.09em;
+  --text-label--font-weight: 600;
 
   /* 컨테이너 폭 3종. 화면마다 다른 폭을 쓰지 않는다. */
-  --container-prose: 42rem;
-  --container-page: 68rem;
+  --container-prose: 40rem;
+  --container-page: 71rem;
   --container-form: 26rem;
 
   /* 라운드는 8px 이하로 제한 (DESIGN.md §4) */
@@ -88,11 +107,12 @@
   h2,
   h3,
   h4 {
+    color: var(--color-ink);
     text-wrap: balance;
   }
 
   ::selection {
-    background-color: var(--color-fg);
+    background-color: var(--color-ink);
     color: var(--color-bg);
   }
 }
@@ -112,5 +132,5 @@
   line-height: var(--text-label--line-height);
   letter-spacing: var(--text-label--letter-spacing);
   font-weight: var(--text-label--font-weight);
-  color: var(--color-muted);
+  color: var(--color-faint);
 }

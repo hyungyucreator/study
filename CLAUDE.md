@@ -53,13 +53,18 @@
 
 ## 4. 디자인 규칙 (DESIGN.md 요약. 어길 거면 먼저 묻는다)
 
-- **컬러 7색만.** 배경 `#FFFFFF`, 면 `#FAFAFA`, 본문 `#111111`, 보조 `#6B7280`, 구분선 `#E5E7EB`,
-  수익 `#DC2626`(적), 손실 `#2563EB`(청). **이 외 유채색 사용 금지.**
+- **유채색은 적/청 둘뿐.** 나머지는 무채색 토큰(`bg` `surface` `ink` `fg` `muted` `faint` `line` `line-strong`).
+  **적/청은 "손익"이 아니라 "방향"을 뜻한다.** 지표 변화값, 자산군 상방·하방에도 쓴다.
+  **자산군마다 색을 주지 않는다.** 색이 두 가지를 뜻하면 방향으로 안 읽힌다.
+- **순백 바탕 금지.** `bg`는 `#FCFCFA`. 순백은 "아직 디자인 안 함"으로 읽힌다.
 - **그라데이션 일절 금지.** 보라·네온 계열, 글래스모피즘 금지.
-- **폰트: Pretendard 단일.** fallback은 시스템 산세리프.
+- **서체 두 벌.** Pretendard가 본문·숫자·UI 전부, Noto Serif KR(`font-serif`)은
+  브리핑 제목·마스트헤드·섹션 제목 전용. **명조를 본문에 쓰지 않는다.**
 - **숫자에는 `tabular` 유틸 필수.** 자릿수 정렬이 어긋나면 안 된다. 반복되는 표는 `table-fixed`.
-- **타이포는 7단계 스케일만 쓴다** (`display` / `title` / `heading` / `subhead` / `body` / `small` / `label`).
+- **타이포는 8단계 스케일만 쓴다** (`display` / `title` / `lead` / `heading` / `subhead` / `body` / `small` / `label`).
   `text-[17px]` 같은 임의값 금지. 스케일에 없으면 스케일을 고친다.
+- **각 부의 첫 기사는 `text-lead`로 크게 두고 라벨을 걷어낸다.** 다 똑같은 크기로 늘어놓으면
+  무엇이 중요한지 화면이 말해주지 않는다.
 - **컨테이너 폭은 3종만** (`max-w-prose` 42rem / `max-w-page` 68rem / `max-w-form` 26rem).
 - 카드 남발 금지. 구분은 여백과 1px 선(`border-line`), 묶을 때는 `bg-surface` 면.
   **선 색을 반드시 명시한다** (Tailwind v4 기본 border 색은 currentColor라 검게 나온다).
