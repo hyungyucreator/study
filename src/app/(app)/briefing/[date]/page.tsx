@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { BriefingBody } from "../briefing-view";
 
-export const metadata = { title: "브리핑 — 투자 데스크" };
+export const metadata = { title: "브리핑 · 투자 데스크" };
 
 export default async function ArchivedBriefingPage({
   params,

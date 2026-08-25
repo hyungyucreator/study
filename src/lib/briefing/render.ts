@@ -28,7 +28,7 @@ function renderGauges(gauges: Gauge[], failed: string[]): string {
       gauge.change === null
         ? ""
         : ` ${gauge.change > 0 ? "+" : ""}${gauge.change}`;
-    const note = gauge.note ? ` — ${gauge.note}` : "";
+    const note = gauge.note ? ` (${gauge.note})` : "";
     return `- **${gauge.label}** ${gauge.display}${change}${note}`;
   });
 
@@ -44,7 +44,7 @@ function renderImplications(implications: Implication[]): string {
   return implications
     .map(
       (item) =>
-        `  - ${assetClassLabel(item.asset_class)} ${DIRECTION_LABEL[item.direction]} — ${item.note}`,
+        `  - **${assetClassLabel(item.asset_class)} ${DIRECTION_LABEL[item.direction]}**\n    ${item.note}`,
     )
     .join("\n");
 }

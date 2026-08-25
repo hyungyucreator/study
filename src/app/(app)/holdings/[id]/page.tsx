@@ -8,7 +8,7 @@ import { deleteHolding, updateHolding } from "../actions";
 import { ClassifyForm } from "../classify-form";
 import { HoldingForm } from "../holding-form";
 
-export const metadata = { title: "자산 수정 — 투자 데스크" };
+export const metadata = { title: "자산 수정 · 투자 데스크" };
 
 export default async function EditHoldingPage({
   params,
@@ -31,28 +31,28 @@ export default async function EditHoldingPage({
   const isKis = holding.source === "kis";
 
   return (
-    <main className="mx-auto w-full max-w-xl flex-1 px-6 py-12">
-      <header className="flex items-baseline justify-between border-b border-line pb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {isKis ? "분류 수정" : "자산 수정"}
-        </h1>
+    <main className="mx-auto w-full max-w-form px-5 pt-10 pb-24 sm:px-8">
+      <header>
         <Link
           href="/holdings"
-          className="text-sm text-muted underline underline-offset-4 hover:text-fg"
+          className="label underline decoration-line underline-offset-4 hover:text-fg"
         >
-          목록
+          보유자산으로
         </Link>
+        <h1 className="text-title mt-3">
+          {isKis ? "분류 수정" : "자산 수정"}
+        </h1>
       </header>
 
-      <p className="mt-6 text-[15px]">
+      <p className="text-subhead mt-6">
         {holding.name}
-        <span className="tabular ml-2 text-sm text-muted">
+        <span className="tabular ml-2 text-label text-muted">
           {holding.symbol}
         </span>
       </p>
 
       {isKis ? (
-        <p className="mt-1 text-sm text-muted">
+        <p className="label mt-2">
           수량과 평단은 KIS 동기화로 관리된다. 여기서 바꾼 분류는 다음
           동기화에도 유지된다.
         </p>
@@ -76,7 +76,7 @@ export default async function EditHoldingPage({
             <input type="hidden" name="id" value={holding.id} />
             <button
               type="submit"
-              className="text-sm text-muted underline underline-offset-4 hover:text-fg"
+              className="label underline decoration-line underline-offset-4 hover:text-fg"
             >
               이 자산 삭제
             </button>

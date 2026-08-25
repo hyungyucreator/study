@@ -96,7 +96,8 @@ export const BRIEFING_TOOL = {
                   direction: { type: "string", enum: ["up", "down", "unclear"] },
                   note: {
                     type: "string",
-                    description: "한 문장. 왜 그 방향인지.",
+                    description:
+                      "개조식으로 한 줄, 40자 이내. '~함'이나 명사구로 끝낸다. 대시로 잇지 않는다.",
                   },
                 },
                 required: ["asset_class", "direction", "note"],

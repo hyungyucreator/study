@@ -123,7 +123,7 @@ async function buildGauges(): Promise<Collected> {
     gauges.push({
       key: "fed_rate",
       label: "미 기준금리",
-      display: `${fixed(bottom.value, 2)}–${fixed(top.value, 2)}%`,
+      display: `${fixed(bottom.value, 2)}~${fixed(top.value, 2)}%`,
       value: top.value,
       // 정책금리는 매일 움직이지 않는다. 전일 대비 대신 마지막 변경을 note로 말한다.
       change: null,

@@ -18,7 +18,7 @@ type Props = {
 };
 
 const fieldClass =
-  "mt-1 w-full border border-line px-3 py-2 text-[15px] rounded-xs focus:border-fg focus:outline-none";
+  "text-subhead mt-1.5 w-full rounded-xs border border-line px-3 py-2.5 font-normal focus:border-fg focus:outline-none";
 
 export function HoldingForm({ action, holding, submitLabel }: Props) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
@@ -36,7 +36,7 @@ export function HoldingForm({ action, holding, submitLabel }: Props) {
 
       <div className="grid grid-cols-2 gap-4">
         <label className="block">
-          <span className="text-sm text-muted">자산군</span>
+          <span className="label">자산군</span>
           <select
             name="asset_class"
             value={assetClass}
@@ -54,7 +54,7 @@ export function HoldingForm({ action, holding, submitLabel }: Props) {
         </label>
 
         <label className="block">
-          <span className="text-sm text-muted">통화</span>
+          <span className="label">통화</span>
           <select
             name="currency"
             defaultValue={holding?.currency ?? "KRW"}
@@ -76,14 +76,14 @@ export function HoldingForm({ action, holding, submitLabel }: Props) {
           defaultChecked={holding?.is_etf ?? false}
           className="size-4 accent-[var(--color-fg)]"
         />
-        <span className="text-sm text-muted">
+        <span className="label">
           ETF (자산군은 실질 노출 기준으로 고른다. 예: 미국채 ETF는 채권)
         </span>
       </label>
 
       <div className="grid grid-cols-2 gap-4">
         <label className="block">
-          <span className="text-sm text-muted">종목코드</span>
+          <span className="label">종목코드</span>
           <input
             name="symbol"
             defaultValue={holding?.symbol}
@@ -94,7 +94,7 @@ export function HoldingForm({ action, holding, submitLabel }: Props) {
         </label>
 
         <label className="block">
-          <span className="text-sm text-muted">종목명</span>
+          <span className="label">종목명</span>
           <input
             name="name"
             defaultValue={holding?.name}
@@ -107,7 +107,7 @@ export function HoldingForm({ action, holding, submitLabel }: Props) {
 
       <div className="grid grid-cols-2 gap-4">
         <label className="block">
-          <span className="text-sm text-muted">{isCash ? "금액" : "수량"}</span>
+          <span className="label">{isCash ? "금액" : "수량"}</span>
           <input
             name="qty"
             inputMode="decimal"
@@ -118,7 +118,7 @@ export function HoldingForm({ action, holding, submitLabel }: Props) {
         </label>
 
         <label className="block">
-          <span className="text-sm text-muted">
+          <span className="label">
             평균단가{isCash ? " (현금은 비워둘 것)" : ""}
           </span>
           <input
@@ -136,12 +136,12 @@ export function HoldingForm({ action, holding, submitLabel }: Props) {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-xs border border-fg bg-fg px-4 py-2 text-[15px] font-medium text-bg disabled:opacity-50"
+          className="text-subhead rounded-xs border border-fg bg-fg px-5 py-2.5 text-bg disabled:opacity-50"
         >
           {pending ? "저장 중" : submitLabel}
         </button>
         {/* 적색은 이 제품에서 '수익'을 뜻한다. 에러 표시에는 색을 쓰지 않는다. */}
-        {state.error ? <p className="text-sm">{state.error}</p> : null}
+        {state.error ? <p className="text-small">{state.error}</p> : null}
       </div>
     </form>
   );

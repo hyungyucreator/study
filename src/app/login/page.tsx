@@ -30,9 +30,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     : undefined;
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-6 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight">투자 데스크</h1>
-      <p className="mt-2 text-[15px] text-muted">
+    <main className="mx-auto flex w-full max-w-form flex-1 flex-col justify-center px-5 py-16 sm:px-8">
+      <h1 className="text-title">투자 데스크</h1>
+      <p className="mt-2 text-small text-muted">
         매일 10분 브리핑과 자산배분 관리.
       </p>
 
@@ -42,8 +42,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
       {message ? (
         <div className="mt-6 border-t border-line pt-4">
-          <p className="text-sm">{message}</p>
-          {detail ? <p className="mt-1 text-sm text-muted">{detail}</p> : null}
+          <p className="text-small">{message}</p>
+          {detail ? <p className="mt-1 text-small text-muted">{detail}</p> : null}
         </div>
       ) : null}
     </main>

@@ -1,0 +1,27 @@
+import { listBriefingDates, loadBriefing } from "@/lib/briefing/read";
+import { createClient } from "@/lib/supabase/server";
+
+import { BriefingBody } from "./briefing-view";
+
+export const metadata = { title: "브리핑 · 투자 데스크" };
+
+export default async function BriefingPage() {
+  const supabase = await createClient();
+  const [view, archive] = await Promise.all([
+    loadBriefing(supabase),
+    listBriefingDates(supabase),
+  ]);
+
+  if (!view) {
+    return (
+      <main className="mx-auto w-full max-w-prose px-5 pt-10 pb-24 sm:px-8">
+        <h1 className="text-title">브리핑</h1>
+        <p className="mt-4 text-small text-muted">아직 발행된 브리핑이 없다.</p>
+      </main>
+    );
+  }
+
+  return <BriefingBody view={view} archive={archive} />;
+}
+
+export const dynamic = "force-dynamic";
