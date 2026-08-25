@@ -52,44 +52,74 @@ function getKey() {
  * system은 배열로 보내고 cache_control을 붙인다. 매일 동일한 접두사라
  * 캐시가 히트하면 입력 단가가 크게 내려간다 (ARCHITECTURE §4-2).
  */
+/** 이 상태코드는 다시 걸면 성공할 수 있다. 400·401은 재시도해도 같다. */
+function retryable(status: number) {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+const MAX_ATTEMPTS = 3;
+
 export async function callWithTool<T>(options: {
   system: string;
   userMessage: string;
   tool: Tool;
   maxTokens?: number;
 }): Promise<ToolCallResult<T>> {
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": getKey(),
-      "anthropic-version": API_VERSION,
-    },
-    body: JSON.stringify({
-      model: BRIEFING_MODEL,
-      max_tokens: options.maxTokens ?? 6000,
-      system: [
-        {
-          type: "text",
-          text: options.system,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      tools: [options.tool],
-      tool_choice: { type: "tool", name: options.tool.name },
-      messages: [{ role: "user", content: options.userMessage }],
-    }),
-    cache: "no-store",
+  const payload = JSON.stringify({
+    model: BRIEFING_MODEL,
+    max_tokens: options.maxTokens ?? 6000,
+    system: [
+      {
+        type: "text",
+        text: options.system,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    tools: [options.tool],
+    tool_choice: { type: "tool", name: options.tool.name },
+    messages: [{ role: "user", content: options.userMessage }],
   });
 
-  const body = (await response.json()) as ApiResponse;
+  let response: Response | null = null;
+  let body: ApiResponse = {};
+  let lastError = "알 수 없는 오류";
 
-  if (!response.ok) {
-    throw new Error(
-      `Anthropic 호출 실패 (${response.status} ${body.error?.type ?? ""}): ${
-        body.error?.message ?? "알 수 없는 오류"
-      }`,
-    );
+  // 네트워크 blip이나 429/과부하로 그날 브리핑을 통째로 잃지 않는다.
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const attemptResponse = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": getKey(),
+          "anthropic-version": API_VERSION,
+        },
+        body: payload,
+        cache: "no-store",
+      });
+
+      body = (await attemptResponse.json()) as ApiResponse;
+
+      if (attemptResponse.ok) {
+        response = attemptResponse;
+        break;
+      }
+
+      lastError = `${attemptResponse.status} ${body.error?.type ?? ""}: ${
+        body.error?.message ?? ""
+      }`;
+      if (!retryable(attemptResponse.status)) break;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+
+    if (attempt < MAX_ATTEMPTS) {
+      await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
+    }
+  }
+
+  if (!response) {
+    throw new Error(`Anthropic 호출 실패: ${lastError}`);
   }
 
   const toolUse = body.content?.find(

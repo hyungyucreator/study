@@ -15,14 +15,23 @@ const DEFAULT_LOOKBACK_HOURS = 24;
 
 export type Window = { since: string; until: string };
 
-export async function briefingWindow(): Promise<Window> {
+/**
+ * @param forDate 만들려는 브리핑의 날짜(YYYY-MM-DD).
+ *   기준점은 **그 날짜 이전** 브리핑이어야 한다. 오늘 것을 포함하면
+ *   재생성할 때 자기 자신이 기준이 돼 구간이 비고 후보가 0건이 된다.
+ */
+export async function briefingWindow(forDate?: string): Promise<Window> {
   const supabase = createAdminClient();
   const until = new Date().toISOString();
 
-  const { data } = await supabase
+  let query = supabase
     .from("briefings")
     .select("created_at")
-    .eq("type", "daily")
+    .eq("type", "daily");
+
+  if (forDate) query = query.lt("date", forDate);
+
+  const { data } = await query
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

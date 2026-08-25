@@ -118,7 +118,8 @@ export async function generateBriefing(
 
   const [temperature, window] = await Promise.all([
     collectMacro(),
-    briefingWindow(),
+    // 기준은 오늘 이전 브리핑이다. 오늘 것을 포함하면 재생성 시 구간이 빈다.
+    briefingWindow(date),
   ]);
 
   const candidates = await loadCandidates(window);
