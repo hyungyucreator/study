@@ -1,12 +1,11 @@
-import { assetClassLabel } from "@/lib/assets";
 import type { Gauge } from "@/lib/macro";
 
+import { assetLabel, directionLabel } from "./asset-classes";
 import {
   isEconomySection,
   SECTIONS,
   type BriefingPayload,
   type EconomyItem,
-  type Implication,
   type PoliticsItem,
 } from "./schema";
 
@@ -19,12 +18,6 @@ import {
  * 이 마크다운은 화면용이 아니라 아카이브와 알림 채널용이다.
  * 화면은 briefing_news를 직접 읽어 그린다 (read.ts).
  */
-
-const DIRECTION_LABEL: Record<Implication["direction"], string> = {
-  up: "상방",
-  down: "하방",
-  unclear: "불확실",
-};
 
 function renderGauges(gauges: Gauge[], failed: string[]): string {
   if (gauges.length === 0) return "지표를 수집하지 못했다";
@@ -49,30 +42,38 @@ function renderPoints(points: string[]): string {
   return points.map((point) => `- ${point}`).join("\n");
 }
 
-function renderImplications(implications: Implication[]): string {
-  if (implications.length === 0) return "";
-  return implications
-    .map(
-      (item) =>
-        `  - **${assetClassLabel(item.asset_class)} ${DIRECTION_LABEL[item.direction]}**\n    ${item.note}`,
-    )
+/**
+ * 자산군 종합. 브리핑 전체를 놓고 한 번만 쓴다.
+ * 항목마다 붙이던 때는 한 브리핑에 "채권 상방"과 "채권 하방"이 함께 실렸다.
+ */
+function renderOutlook(payload: BriefingPayload): string {
+  if (payload.asset_outlook.length === 0) {
+    return "오늘 뉴스로 방향을 말할 수 있는 자산군이 없다";
+  }
+
+  return payload.asset_outlook
+    .map((item) => {
+      const head = `${assetLabel(item.asset_class)} ${directionLabel(
+        item.asset_class,
+        item.direction,
+      )}`;
+      return [`- **${head}**`, `  ${item.note}`].join("\n");
+    })
     .join("\n");
 }
 
 function renderEconomy(items: EconomyItem[]): string {
   return items
-    .map((item, index) => {
-      const implications = renderImplications(item.implications);
-      return [
+    .map((item, index) =>
+      [
         `#### ${index + 1}. ${item.headline}`,
         "",
         renderPoints(item.points),
         "",
         `- 예상 대비: ${item.surprise}`,
-        implications ? `- 자산군:\n${implications}` : "- 자산군: 없음",
         `- 출처: [${item.source_name}](${item.source_url})`,
-      ].join("\n");
-    })
+      ].join("\n"),
+    )
     .join("\n\n");
 }
 
@@ -121,5 +122,9 @@ export function renderBriefing(options: {
     renderGauges(gauges, failedGauges),
     "",
     ...sections,
+    "## 오늘의 자산군",
+    "",
+    renderOutlook(payload),
+    "",
   ].join("\n");
 }

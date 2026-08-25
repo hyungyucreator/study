@@ -57,13 +57,21 @@ raw_news(id, source, url, title, lead, published_at, fetched_at, category)
 raw_market(id, symbol, kind, value, as_of, source)
 -- 포트폴리오 시세 캐시도 이 테이블을 쓴다. kind='price'(종목 현재가), kind='fx'(symbol='USDKRW').
 -- as_of는 제공자의 체결시각이 아니라 우리가 관측한 시각이다 (장 마감 후 캐시 신선도 판단용).
-briefings(id, date, type[daily|event], body_md, temperature_json, created_at)
+briefings(id, date, type[daily|event], body_md, temperature_json,
+          asset_outlook, created_at)
+-- asset_outlook = 브리핑 전체를 종합한 자산군 방향. 항목별로 흩어두지 않는다.
+--   [{asset_class, direction, note, evidence[]}]
+--   자산군: kr_equity | intl_equity | kr_bond | intl_bond | commodity | krw | usd
+--   holdings의 자산군과 일부러 분리했다. 목적이 다르다 (src/lib/briefing/asset-classes.ts).
 briefing_news(briefing_id, raw_news_id, thread_id, section, headline, points,
               terms, fact, surprise, implication_json, source_url, position)
 events_calendar(id, name, scheduled_at, kind, importance)
 deep_dives(id, week, title, body_md, sources_json)
 concept_cards(id, term, summary, body_md, created_at)  -- 재생성 금지. summary는 툴팁용
-threads(id, title, summary, started_on, last_seen_on, entries, created_at)  -- 공용, 이슈 흐름
+threads(id, title, summary, started_on, last_seen_on, entries,
+        brief_json, brief_updated_on, closed_on, created_at)  -- 공용, 이슈 흐름
+-- brief_json = {what[], so_far[], next[]}. 전개가 붙을 때마다 Sonnet이 다시 쓴다.
+-- closed_on이 있으면 종결. 없으면 last_seen_on으로 진행·주시를 판정한다.
 thread_news(thread_id, raw_news_id, published_at)  -- 공용, 타임라인
 etf_catalog(id, layer[core|tilt], category, ticker, name, expense_ratio,
             aum, tracking_error, hedged, dist_type, pension_eligible,

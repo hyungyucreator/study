@@ -9,24 +9,12 @@
  * "골고루 골라라"라고 쓰면 모델이 한쪽으로 쏠린다.
  */
 
-/** 자산군은 holdings와 같은 값을 쓴다. 개별 종목은 여기에 올 수 없다. */
-export const IMPLICATION_ASSET_CLASSES = [
-  "kr_equity",
-  "intl_equity",
-  "bond",
-  "commodity",
-  "currency",
-  "cash",
-] as const;
+import {
+  BRIEFING_ASSET_VALUES,
+  type AssetOutlook,
+} from "./asset-classes";
 
-export type ImplicationAssetClass = (typeof IMPLICATION_ASSET_CLASSES)[number];
-
-export type Implication = {
-  asset_class: ImplicationAssetClass;
-  /** 방향. 근거가 약하면 unclear를 쓰게 한다. */
-  direction: "up" | "down" | "unclear";
-  note: string;
-};
+export type { AssetOutlook };
 
 export const SECTIONS = [
   { key: "kr_economy", label: "국내 경제", kind: "economy" },
@@ -62,7 +50,6 @@ type BaseItem = {
 export type EconomyItem = BaseItem & {
   /** 시장 예상 대비. 한 줄 명사구. */
   surprise: string;
-  implications: Implication[];
 };
 
 export type PoliticsItem = BaseItem & {
@@ -81,6 +68,8 @@ export type BriefingPayload = {
   global_economy: EconomyItem[];
   kr_politics: PoliticsItem[];
   global_politics: PoliticsItem[];
+  /** 브리핑 전체를 종합한 자산군 방향. 항목별로 흩어두지 않는다. */
+  asset_outlook: AssetOutlook[];
 };
 
 export function isEconomySection(key: string) {
@@ -145,25 +134,6 @@ const economyItem = {
       description:
         "시장 예상 대비. 한 줄 명사구, 온점 없음. '예상 부합', '예상 상회' 형태로 시작한다. 예상치를 알 수 없으면 '시장 예상치 확인 불가'라고만 쓴다. 지어내지 말 것.",
     },
-    implications: {
-      type: "array",
-      maxItems: 3,
-      description:
-        "자산군 단위 함의. 실제로 있을 때만. 억지로 채우지 말 것. 없으면 빈 배열.",
-      items: {
-        type: "object",
-        properties: {
-          asset_class: { type: "string", enum: IMPLICATION_ASSET_CLASSES },
-          direction: { type: "string", enum: ["up", "down", "unclear"] },
-          note: {
-            type: "string",
-            description:
-              "개조식 한 줄, 40자 이내, 온점 없음. '~함'이나 명사구로 끝낸다.",
-          },
-        },
-        required: ["asset_class", "direction", "note"],
-      },
-    },
     source_url,
     source_name: { type: "string" },
   },
@@ -173,7 +143,6 @@ const economyItem = {
     "thread",
     "terms",
     "surprise",
-    "implications",
     "source_url",
     "source_name",
   ],
@@ -217,6 +186,34 @@ const politicsItem = {
   ],
 };
 
+const assetOutlook = {
+  type: "array",
+  maxItems: 5,
+  description:
+    "브리핑 전체를 놓고 본 자산군 방향. **항목마다 붙이지 말고 여기서 한 번만 종합한다.** 오늘 뉴스로 방향을 말할 수 있는 자산군만 넣는다. 2~4개가 보통이고, 억지로 채우면 안 된다. 같은 자산군을 두 번 넣지 않는다. 모순되는 근거가 있으면 unclear로 두고 무엇이 엇갈리는지 쓴다.",
+  items: {
+    type: "object",
+    properties: {
+      asset_class: { type: "string", enum: BRIEFING_ASSET_VALUES },
+      direction: { type: "string", enum: ["up", "down", "unclear"] },
+      note: {
+        type: "string",
+        description:
+          "왜 그 방향인지. 개조식 한 줄, 50자 이내, 온점 없음.",
+      },
+      evidence: {
+        type: "array",
+        minItems: 1,
+        maxItems: 3,
+        description:
+          "근거가 된 기사의 source_url. 위 섹션에서 고른 기사 중에서만 쓴다.",
+        items: { type: "string" },
+      },
+    },
+    required: ["asset_class", "direction", "note", "evidence"],
+  },
+};
+
 function section(description: string, items: object) {
   return {
     type: "array",
@@ -250,7 +247,14 @@ export const BRIEFING_TOOL = {
         "국제 정치·사회. 외교, 안보, 해외 정치, 국제 테크.",
         politicsItem,
       ),
+      asset_outlook: assetOutlook,
     },
-    required: ["kr_economy", "global_economy", "kr_politics", "global_politics"],
+    required: [
+      "kr_economy",
+      "global_economy",
+      "kr_politics",
+      "global_politics",
+      "asset_outlook",
+    ],
   },
 };

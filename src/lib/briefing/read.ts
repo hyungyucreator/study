@@ -4,7 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Gauge } from "@/lib/macro";
 
-import { SECTIONS, type Implication, type SectionKey } from "./schema";
+import type { AssetOutlook } from "./asset-classes";
+import { SECTIONS, type SectionKey } from "./schema";
 
 /**
  * 화면용 브리핑 조회.
@@ -34,7 +35,6 @@ export type BriefingItem = {
   sourceName: string | null;
   /** 경제 섹션 */
   surprise: string | null;
-  implications: Implication[];
   /** 정치·사회 섹션 */
   context: string | null;
   outlook: string | null;
@@ -57,6 +57,8 @@ export type BriefingView = {
   gauges: Gauge[];
   failedGauges: string[];
   sections: BriefingSection[];
+  /** 브리핑 전체를 종합한 자산군 방향. */
+  outlook: AssetOutlook[];
   /** 전체 기사 수. */
   count: number;
   /** 오늘 움직인 이슈. 전개가 2회 이상인 것부터. */
@@ -78,7 +80,6 @@ type NewsRow = {
     part?: number;
     region?: "kr" | "global";
     source_name?: string;
-    implications?: Implication[];
     context?: string;
     outlook?: string;
     investment_note?: string | null;
@@ -117,7 +118,6 @@ function toItem(
     sourceUrl: row.source_url,
     sourceName: meta.source_name ?? null,
     surprise: row.surprise,
-    implications: meta.implications ?? [],
     context: meta.context ?? null,
     outlook: meta.outlook ?? null,
     investmentNote: meta.investment_note ?? null,
@@ -136,7 +136,7 @@ export async function loadBriefing(
 ): Promise<BriefingView | null> {
   let query = supabase
     .from("briefings")
-    .select("id, date, temperature_json")
+    .select("id, date, temperature_json, asset_outlook")
     .eq("type", "daily");
 
   query = date
@@ -227,6 +227,7 @@ export async function loadBriefing(
     gauges: temperature?.gauges ?? [],
     failedGauges: temperature?.failed ?? [],
     sections,
+    outlook: (briefing.asset_outlook ?? []) as AssetOutlook[],
     count: items.length,
     threads: todayThreads,
   };

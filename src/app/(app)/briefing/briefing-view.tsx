@@ -1,8 +1,12 @@
 import Link from "next/link";
 
-import { assetClassLabel } from "@/lib/assets";
+import {
+  assetLabel,
+  directionClass,
+  directionLabel,
+  sortOutlook,
+} from "@/lib/briefing/asset-classes";
 import type { BriefingItem, BriefingView } from "@/lib/briefing/read";
-import type { Implication } from "@/lib/briefing/schema";
 
 import { WithTerms } from "./term";
 
@@ -19,18 +23,6 @@ import { WithTerms } from "./term";
  *
  * 색은 방향에만 쓴다. 적이 상방, 청이 하방이다 (DESIGN.md §2).
  */
-
-const DIRECTION: Record<Implication["direction"], string> = {
-  up: "상방",
-  down: "하방",
-  unclear: "불확실",
-};
-
-function directionClass(direction: Implication["direction"]) {
-  if (direction === "up") return "text-gain";
-  if (direction === "down") return "text-loss";
-  return "";
-}
 
 /** 라벨 + 내용 한 줄. 내용이 한 줄 명사구라 좌측 라벨이 스캔에 유리하다. */
 function Row({
@@ -71,38 +63,6 @@ function Points({
   );
 }
 
-function Implications({
-  items,
-  cards,
-}: {
-  items: Implication[];
-  cards: { term: string; summary: string | null }[];
-}) {
-  if (items.length === 0) return null;
-
-  return (
-    <Row label="자산군">
-      <ul className="space-y-2">
-        {items.map((implication) => (
-          <li key={implication.asset_class}>
-            <span className="text-subhead text-ink">
-              {assetClassLabel(implication.asset_class)}
-            </span>{" "}
-            <span
-              className={`text-subhead ${directionClass(implication.direction)}`}
-            >
-              {DIRECTION[implication.direction]}
-            </span>
-            <p className="text-small text-muted">
-              <WithTerms text={implication.note} cards={cards} />
-            </p>
-          </li>
-        ))}
-      </ul>
-    </Row>
-  );
-}
-
 function Article({ item, lead }: { item: BriefingItem; lead: boolean }) {
   return (
     <article className="border-b border-line py-7 first:pt-5 last:border-b-0">
@@ -130,8 +90,6 @@ function Article({ item, lead }: { item: BriefingItem; lead: boolean }) {
             <WithTerms text={item.outlook} cards={item.cards} />
           </Row>
         ) : null}
-
-        <Implications items={item.implications} cards={item.cards} />
 
         {item.investmentNote ? (
           <Row label="투자 함의">
@@ -205,6 +163,14 @@ export function BriefingBody({
   const find = (key: string) =>
     view.sections.find((section) => section.key === key)?.items ?? [];
 
+  // 자산군 근거를 그 기사의 헤드라인으로 되돌린다. url만 보여주면 알 수 없다.
+  const headlines = new Map(
+    view.sections
+      .flatMap((section) => section.items)
+      .map((item) => [item.sourceUrl, item.headline ?? item.points[0]]),
+  );
+  const evidenceOf = (url: string) => headlines.get(url) ?? null;
+
   const columns = [
     {
       key: "kr",
@@ -274,6 +240,49 @@ export function BriefingBody({
           </div>
         ))}
       </div>
+
+      {view.outlook.length > 0 ? (
+        <section className="mt-20 border-t-2 border-ink pt-6">
+          <h2 className="font-serif text-title">오늘의 자산군</h2>
+          <p className="label mt-2">
+            브리핑 전체를 놓고 본 방향. 오늘 뉴스로 말할 수 있는 것만 싣는다
+          </p>
+
+          <div className="mt-6 grid gap-x-16 gap-y-7 lg:grid-cols-2">
+            {sortOutlook(view.outlook).map((item) => (
+              <div
+                key={item.asset_class}
+                className="border-l-2 border-line-strong pl-4"
+              >
+                <div className="flex items-baseline gap-2.5">
+                  <span className="text-heading font-serif text-ink">
+                    {assetLabel(item.asset_class)}
+                  </span>
+                  <span
+                    className={`text-subhead ${directionClass(item.direction)}`}
+                  >
+                    {directionLabel(item.asset_class, item.direction)}
+                  </span>
+                </div>
+                <p className="text-body mt-1.5 leading-[1.6]">{item.note}</p>
+                {item.evidence.length > 0 ? (
+                  <ul className="mt-2.5 space-y-1">
+                    {item.evidence.map((url) => {
+                      const source = evidenceOf(url);
+                      if (!source) return null;
+                      return (
+                        <li key={url} className="label">
+                          {source}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {past.length > 0 ? (
         <section className="mt-24 border-t border-line-strong pt-6">

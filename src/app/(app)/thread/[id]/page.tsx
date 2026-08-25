@@ -1,15 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import {
+  statusNote,
+  statusOf,
+  STATUS_LABEL,
+  type ThreadRow,
+} from "@/lib/briefing/thread-list";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "이슈 · 투자 데스크" };
 
 type Entry = {
-  date: string;
   headline: string | null;
   points: string[] | null;
   source_url: string;
+  briefings: { date: string } | null;
 };
 
 type Related = {
@@ -17,12 +23,32 @@ type Related = {
   raw_news: { title: string; source: string; url: string } | null;
 };
 
+/** 브리프 한 덩어리. 없으면 그리지 않는다. */
+function BriefBlock({ label, items }: { label: string; items?: string[] }) {
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className="mt-7 first:mt-0">
+      <h3 className="label">{label}</h3>
+      <ul className="mt-2 space-y-2">
+        {items.map((line) => (
+          <li key={line} className="text-body flex gap-2.5 leading-[1.55]">
+            <span aria-hidden className="text-faint shrink-0 select-none">
+              ·
+            </span>
+            <span>{line}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /**
- * 이슈 타임라인.
+ * 이슈 화면.
  *
- * 브리핑에 실린 날은 그날의 불렛을 그대로 보여준다.
- * 실리지 않은 날의 관련 기사는 아래에 따로 둔다. 제목 유사도로 붙인 것이라
- * 브리핑이 실제로 다룬 것과 섞으면 안 된다.
+ * 위쪽은 서사(브리프), 아래쪽은 기록이다.
+ * 브리프가 없으면 이 화면은 기사 목록일 뿐이다.
  */
 export default async function ThreadPage({
   params,
@@ -30,13 +56,29 @@ export default async function ThreadPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: thread } = await supabase
+  const { data } = await supabase
     .from("threads")
-    .select("id, title, summary, started_on, last_seen_on, entries")
+    .select(
+      "id, title, summary, started_on, last_seen_on, entries, closed_on, brief_json",
+    )
     .eq("id", id)
     .maybeSingle();
 
-  if (!thread) notFound();
+  if (!data) notFound();
+  const thread = data as ThreadRow;
+
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Seoul",
+  });
+  const status = statusOf(thread, today);
+  const days = Math.max(
+    0,
+    Math.round(
+      (new Date(`${today}T00:00:00Z`).getTime() -
+        new Date(`${thread.started_on}T00:00:00Z`).getTime()) /
+        86400000,
+    ),
+  );
 
   const [{ data: entries }, { data: related }] = await Promise.all([
     supabase
@@ -52,32 +94,47 @@ export default async function ThreadPage({
       .limit(30),
   ]);
 
-  const timeline = ((entries ?? []) as unknown as (Entry & {
-    briefings: { date: string } | null;
-  })[])
+  const timeline = ((entries ?? []) as unknown as Entry[])
     .map((entry) => ({ ...entry, date: entry.briefings?.date ?? "" }))
     .filter((entry) => entry.date)
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  const carried = (related ?? []) as unknown as Related[];
+  const carried = ((related ?? []) as unknown as Related[]).filter(
+    (item) => item.raw_news !== null,
+  );
+
+  const brief = thread.brief_json;
 
   return (
     <main className="mx-auto w-full max-w-prose px-5 pt-12 pb-24 sm:px-8">
       <header className="border-b-2 border-ink pb-6">
         <Link
-          href="/briefing"
+          href="/threads"
           className="label underline decoration-line-strong underline-offset-4 hover:text-ink"
         >
-          브리핑으로
+          이슈 목록
         </Link>
         <h1 className="font-serif text-display mt-3">{thread.title}</h1>
         <p className="tabular label mt-3">
-          {thread.started_on} 시작 · 전개 {thread.entries}회
+          {STATUS_LABEL[status]} ·{" "}
+          {statusNote({ ...thread, status, days })} · {thread.started_on} 시작
         </p>
       </header>
 
+      {brief ? (
+        <section className="mt-10 border-b border-line-strong pb-8">
+          <BriefBlock label="이 이슈는 무엇인가" items={brief.what} />
+          <BriefBlock label="지금까지" items={brief.so_far} />
+          <BriefBlock label="다음 분기점" items={brief.next} />
+        </section>
+      ) : (
+        <p className="mt-8 text-small text-muted">
+          아직 정리된 요약이 없다. 다음 전개가 붙으면 만들어진다.
+        </p>
+      )}
+
       {timeline.length > 0 ? (
-        <section className="mt-10">
+        <section className="mt-12">
           <h2 className="label border-b border-line-strong pb-2">브리핑 기록</h2>
           {timeline.map((entry) => (
             <article
@@ -101,6 +158,14 @@ export default async function ThreadPage({
                   </li>
                 ))}
               </ul>
+              <a
+                href={entry.source_url}
+                target="_blank"
+                rel="noreferrer"
+                className="label mt-3 inline-block underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
+              >
+                원문
+              </a>
             </article>
           ))}
         </section>
@@ -108,28 +173,23 @@ export default async function ThreadPage({
 
       {carried.length > 0 ? (
         <section className="mt-14">
-          <h2 className="label border-b border-line-strong pb-2">
-            관련 기사
-          </h2>
+          <h2 className="label border-b border-line-strong pb-2">관련 기사</h2>
           <p className="label mt-2">
-            제목이 비슷해 함께 묶은 기사다. 브리핑이 다룬 것은 아니다.
+            제목이 비슷해 함께 묶은 기사다. 브리핑이 다룬 것은 아니다
           </p>
           <ul className="mt-3">
             {carried.map((item) => (
-              <li
-                key={item.raw_news?.url ?? item.published_at}
-                className="border-b border-line py-3.5"
-              >
+              <li key={item.raw_news!.url} className="border-b border-line py-3.5">
                 <a
-                  href={item.raw_news?.url}
+                  href={item.raw_news!.url}
                   target="_blank"
                   rel="noreferrer"
                   className="text-small hover:text-ink"
                 >
-                  {item.raw_news?.title}
+                  {item.raw_news!.title}
                 </a>
                 <p className="tabular label mt-1">
-                  {item.published_at.slice(0, 10)} · {item.raw_news?.source}
+                  {item.published_at.slice(0, 10)} · {item.raw_news!.source}
                 </p>
               </li>
             ))}

@@ -17,9 +17,10 @@ import {
   resolveThreads,
   touchThreads,
 } from "./threads";
+import { refreshBrief } from "./thread-brief";
+import { BRIEFING_ASSET_VALUES } from "./asset-classes";
 import {
   BRIEFING_TOOL,
-  IMPLICATION_ASSET_CLASSES,
   isEconomySection,
   SECTIONS,
   type BriefingPayload,
@@ -45,7 +46,7 @@ function kstDate(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 }
 
-const ASSET_CLASS_SET = new Set<string>(IMPLICATION_ASSET_CLASSES);
+const ASSET_CLASS_SET = new Set<string>(BRIEFING_ASSET_VALUES);
 
 type SourceRef = { id: string; source: string; title: string };
 
@@ -55,6 +56,7 @@ function emptyPayload(): BriefingPayload {
     global_economy: [],
     kr_politics: [],
     global_politics: [],
+    asset_outlook: [],
   };
 }
 
@@ -106,18 +108,7 @@ function validate(
       result[section.key as "kr_economy" | "global_economy"] = cleaned.map(
         (item) => {
           const economy = item as EconomyItem;
-          return {
-            ...economy,
-            surprise: trimPoint(economy.surprise ?? ""),
-            implications: (economy.implications ?? [])
-              .filter((implication) =>
-                ASSET_CLASS_SET.has(implication.asset_class),
-              )
-              .map((implication) => ({
-                ...implication,
-                note: trimPoint(implication.note ?? ""),
-              })),
-          };
+          return { ...economy, surprise: trimPoint(economy.surprise ?? "") };
         },
       );
     } else {
@@ -136,6 +127,24 @@ function validate(
       );
     }
   }
+
+  // 자산군 종합은 브리핑 단위라 섹션 루프 밖에서 정리한다.
+  // 같은 자산군이 두 번 오면 첫 것만 남긴다. 모순을 화면에 싣지 않는다.
+  const usedClasses = new Set<string>();
+  result.asset_outlook = (payload.asset_outlook ?? [])
+    .filter((item) => ASSET_CLASS_SET.has(item.asset_class))
+    .filter((item) => {
+      if (usedClasses.has(item.asset_class)) return false;
+      usedClasses.add(item.asset_class);
+      return true;
+    })
+    .map((item) => ({
+      ...item,
+      note: trimPoint(item.note ?? ""),
+      // 근거는 실제로 실린 기사만 남긴다.
+      evidence: (item.evidence ?? []).filter((url) => seen.has(url)),
+    }))
+    .filter((item) => item.evidence.length > 0);
 
   return { payload: result, dropped };
 }
@@ -259,6 +268,7 @@ export async function generateBriefing(
       gauges: temperature.gauges,
       failed: temperature.failed,
     },
+    asset_outlook: payload.asset_outlook,
   };
 
   // daily의 유일 제약은 부분 인덱스(where type='daily')라 upsert의 onConflict로
@@ -344,7 +354,6 @@ export async function generateBriefing(
           implication_json: economy
             ? {
                 section: section.key,
-                implications: asEconomy.implications,
                 source_name: item.source_name,
               }
             : {
@@ -380,6 +389,16 @@ export async function generateBriefing(
       ),
     ),
   );
+
+  // 오늘 전개가 붙은 이슈만 브리프를 다시 쓴다. 하루 3~5개다.
+  // 이슈 화면에 서사가 없으면 기사 목록일 뿐이다.
+  const touched = new Map<string, string>();
+  for (const thread of threadMap.values()) {
+    if (!touched.has(thread.id)) touched.set(thread.id, thread.title);
+  }
+  for (const [id, title] of touched) {
+    await refreshBrief(id, title, date);
+  }
 
   return {
     date,
