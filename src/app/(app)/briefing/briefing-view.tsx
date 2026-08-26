@@ -316,36 +316,14 @@ function TopStory({
     </h2>
   );
 
-  // 옛 브리핑(body 없음)은 한 열 폴백.
-  if (item.body.length === 0) {
-    return (
-      <section className="border-b-2 border-ink py-9 lg:py-11">
-        <div className="min-w-0 max-w-prose">
-          {kicker}
-          {headline}
-          <ItemContent item={item} markFirstInsight />
-          <Meta item={item} />
-        </div>
-      </section>
-    );
-  }
-
-  // 왼쪽은 서사(내용), 오른쪽 레일은 해석(인사이트 박스).
+  // 리더 카드와 같은 세로 흐름이다: 내용 → 인사이트 → 출처.
+  // 톱도 같은 골격이고, 다만 1면에 펼쳐져 있을 뿐이다.
   return (
     <section className="border-b-2 border-ink py-9 lg:py-11">
-      <div className="lg:flex lg:items-start lg:gap-14">
-        <div className="min-w-0 max-w-prose lg:flex-1">
-          {kicker}
-          {headline}
-          <BodyParagraphs item={item} />
-        </div>
-
-        <aside className="mt-2 lg:mt-1 lg:w-80 lg:shrink-0 lg:border-l lg:border-line lg:pl-10">
-          <InsightsBox item={item} markFirst />
-        </aside>
-      </div>
-
-      <div className="max-w-prose">
+      <div className="min-w-0 max-w-prose">
+        {kicker}
+        {headline}
+        <ItemContent item={item} markFirstInsight />
         <Meta item={item} />
       </div>
     </section>
