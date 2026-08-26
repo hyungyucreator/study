@@ -154,33 +154,32 @@ function Points({
  */
 function Meta({ item }: { item: BriefingItem }) {
   return (
-    <p className="label mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-      <span className="text-faint">출처</span>
-      <a
-        href={item.sourceUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
-      >
-        {item.sourceName ?? "원문"}
-      </a>
-      {item.related.map((entry) => (
+    <div className="mt-6 space-y-1.5">
+      <p className="label flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-faint">출처</span>
         <a
-          key={entry.url}
-          href={entry.url}
+          href={item.sourceUrl}
           target="_blank"
           rel="noreferrer"
-          title={entry.title}
           className="underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
         >
-          {entry.source}
+          {item.sourceName ?? "원문"}
         </a>
-      ))}
+        {item.related.map((entry) => (
+          <a
+            key={entry.url}
+            href={entry.url}
+            target="_blank"
+            rel="noreferrer"
+            title={entry.title}
+            className="underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
+          >
+            {entry.source}
+          </a>
+        ))}
+      </p>
       {item.thread ? (
-        <>
-          <span aria-hidden className="text-faint select-none">
-            ·
-          </span>
+        <p className="label flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="text-faint">이슈</span>
           <Link
             href={`/thread/${item.thread.id}`}
@@ -191,9 +190,9 @@ function Meta({ item }: { item: BriefingItem }) {
           {item.thread.entries > 1 ? (
             <span className="tabular">{item.thread.entries}번째 전개</span>
           ) : null}
-        </>
+        </p>
       ) : null}
-    </p>
+    </div>
   );
 }
 
@@ -286,7 +285,10 @@ function TopStory({
       <div className="lg:flex lg:items-start lg:justify-between lg:gap-16">
         <div className="min-w-0 max-w-prose">
           <div className="flex items-center gap-3">
-            <p className="label">오늘의 톱 · {sectionLabel(item.section)}</p>
+            <p className="label flex items-baseline gap-x-3">
+              <span>오늘의 톱</span>
+              <span className="text-faint">{sectionLabel(item.section)}</span>
+            </p>
             <ReadDot
               read={control.isRead(item.sourceUrl)}
               onToggle={() => control.toggleRead(item.sourceUrl)}

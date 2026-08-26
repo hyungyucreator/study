@@ -11,7 +11,7 @@ import "server-only";
  */
 
 const TIMEOUT_MS = 8000;
-const MAX_CHARS = 2500;
+const MAX_CHARS = 3500;
 
 /** 캡션·저작권 고지·구독 유도처럼 본문이 아닌 문단. */
 const JUNK =
