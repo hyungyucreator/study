@@ -1,6 +1,7 @@
 import "server-only";
 
 import { collectMacro } from "@/lib/macro";
+import { fetchArticleTexts } from "@/lib/news/article";
 import { selectNews, type Cluster } from "@/lib/news/select";
 import { briefingWindow, loadCandidates } from "@/lib/news/window";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -40,6 +41,8 @@ export type GenerateResult = {
   /** 붙은 이슈 수와 새로 만든 용어 카드 수. 검증용. */
   threads: { total: number; created: number };
   terms: number;
+  /** 본문을 가져온 기사 수 / 전체 선별 수. 추출기 건강 신호다. */
+  bodies: string;
 };
 
 function kstDate(): string {
@@ -212,6 +215,7 @@ export async function generateBriefing(
         briefingId: existing.id as string,
         threads: { total: 0, created: 0 },
         terms: 0,
+        bodies: "0/0",
       };
     }
   }
@@ -236,6 +240,13 @@ export async function generateBriefing(
     throw new Error("뉴스 후보가 없다. 수집이 먼저 돌았는지 확인할 것.");
   }
 
+  // 선별된 기사에 한해 본문을 일시 수집한다. 모델 재료로만 쓰고 저장하지 않는다
+  // (CLAUDE.md §2-3 개정, 2026-08-26: 표시·저장 금지 유지, 생성 시점 수집 허용).
+  // 실패한 기사는 리드문 폴백이라 브리핑이 죽는 일은 없다.
+  const bodies = await fetchArticleTexts(
+    allClusters.map((cluster) => cluster.lead_item.url),
+  );
+
   const { data, usage } = await callWithTool<BriefingPayload>({
     system: SYSTEM_PROMPT,
     userMessage: buildUserMessage({
@@ -247,6 +258,7 @@ export async function generateBriefing(
       globalEconomy: selection.globalEconomy,
       krPolitics: selection.krPolitics,
       globalPolitics: selection.globalPolitics,
+      bodies,
     }),
     tool: BRIEFING_TOOL,
     maxTokens: 12000,
@@ -294,6 +306,7 @@ export async function generateBriefing(
       briefingId: null,
       threads: { total: 0, created: 0 },
       terms: 0,
+      bodies: `${bodies.size}/${allClusters.length}`,
     };
   }
 
@@ -454,5 +467,6 @@ export async function generateBriefing(
     briefingId,
     threads: threadStats,
     terms: termCount,
+    bodies: `${bodies.size}/${allClusters.length}`,
   };
 }

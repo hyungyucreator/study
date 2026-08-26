@@ -41,9 +41,9 @@ export const SYSTEM_PROMPT = `당신은 개인 투자자 한 사람을 위한 �
 
 # 본문은 개조식으로 쓴다
 points에 불렛 5~8개를 넣는다. 이것이 본문이다.
-독자는 원문 기사로 넘어가지 않는다. **리드문과 함께 보도의 리드에 있는 구체 정보
-(숫자·기관·일정·인물·발언)를 빠뜨리지 말고 전부 담는다.** 요약을 위해 정보를 버리지 않는다.
-재료가 적으면 5개, 많으면 8개까지 채운다.
+독자는 원문 기사로 넘어가지 않는다. **제공된 본문·리드에 있는 구체 정보
+(숫자·기관·일정·인물·발언·배경)를 빠뜨리지 말고 담는다.** 요약을 위해 정보를 버리지 않는다.
+재료가 적으면 5개, 많으면 8개까지 채운다. 이 브리핑만 읽어도 사건이 이해돼야 한다.
 
 - **각 불렛 50자 이내, 온점을 찍지 않는다**
 - 숫자를 앞에 쓴다
@@ -92,8 +92,8 @@ surprise, context, outlook, asset_outlook의 note도 같은 규칙을 따른다.
 - "사라", "담아라", "유리하다", "매력적이다" 같은 매수·매도 권유를 쓰지 않는다.
 - 없는 연결고리를 지어내지 않는다. 자산군 방향은 실제로 근거가 있을 때만 쓴다. 없으면 비워라.
 - 시장 예상치를 모르면서 "예상 상회/하회"라고 쓰지 않는다. 모르면 "시장 예상치 확인 불가"라고만 쓴다.
-- 제공된 리드문 밖의 사실을 추가하지 않는다. 기사 본문을 갖고 있지 않다는 것을 전제로 쓴다.
-- **후보의 제목이나 리드문에 없는 고유명사(인명·기관명·지명)를 쓰지 않는다.** 기억으로 이름을 채우지 말 것.
+- 제공된 본문·리드 밖의 사실을 추가하지 않는다.
+- **제공된 본문·리드에 없는 고유명사(인명·기관명·지명)를 쓰지 않는다.** 기억으로 이름을 채우지 말 것.
 - source_url은 제공된 것을 그대로 쓴다. 링크를 만들어내지 않는다.
 
 # 문체
@@ -125,13 +125,17 @@ function clip(text: string | null, max = 240): string {
   return trimmed.length <= max ? trimmed : `${trimmed.slice(0, max)}…`;
 }
 
-function formatClusters(clusters: Cluster[]): string {
+function formatClusters(
+  clusters: Cluster[],
+  bodies: Map<string, string>,
+): string {
   if (clusters.length === 0) return "(후보 없음)";
   return clusters
     .map((cluster, index) => {
       // 같은 사건의 다른 기사도 제목과 리드를 준다. 불렛의 재료다.
       // 매체 수만 주면 모델이 쓸 수 있는 사실이 리드 하나로 준다.
       const item = cluster.lead_item;
+      const body = bodies.get(item.url);
       const alsoRun = cluster.others
         .slice(0, 3)
         .map(
@@ -145,7 +149,8 @@ function formatClusters(clusters: Cluster[]): string {
         [
           `${index + 1}. ${item.title}`,
           `  매체: ${item.source}`,
-          `  리드: ${clip(item.lead)}`,
+          // 본문을 가져온 기사는 본문을, 못 가져온 기사는 리드를 준다.
+          body ? `  본문: ${body.replace(/\n/g, " ")}` : `  리드: ${clip(item.lead)}`,
           `  url: ${item.url}`,
         ].join("\n") + (alsoRun ? `\n${alsoRun}` : "")
       );
@@ -164,6 +169,11 @@ export type PromptInput = {
   globalEconomy: Cluster[];
   krPolitics: Cluster[];
   globalPolitics: Cluster[];
+  /**
+   * url → 기사 본문. 생성 시점에만 쓰고 버린다 (CLAUDE.md §2-3 개정).
+   * 없는 기사는 리드문으로 폴백한다.
+   */
+  bodies: Map<string, string>;
 };
 
 export function buildUserMessage(input: PromptInput): string {
@@ -181,14 +191,14 @@ ${formatGauges(input.gauges)}${failed}
 ${input.threads}
 
 # 후보: 국내 경제
-${formatClusters(input.krEconomy)}
+${formatClusters(input.krEconomy, input.bodies)}
 
 # 후보: 국제 경제
-${formatClusters(input.globalEconomy)}
+${formatClusters(input.globalEconomy, input.bodies)}
 
 # 후보: 국내 정치·사회
-${formatClusters(input.krPolitics)}
+${formatClusters(input.krPolitics, input.bodies)}
 
 # 후보: 국제 정치·사회
-${formatClusters(input.globalPolitics)}`;
+${formatClusters(input.globalPolitics, input.bodies)}`;
 }
