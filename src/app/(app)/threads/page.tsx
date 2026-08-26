@@ -2,11 +2,10 @@ import Link from "next/link";
 
 import {
   listThreads,
-  movedWithin,
   statusNote,
   STATUS_LABEL,
   type ThreadListItem,
-  type ThreadStatus,
+  type ThreadTier,
 } from "@/lib/briefing/thread-list";
 import { createClient } from "@/lib/supabase/server";
 
@@ -17,7 +16,7 @@ function Group({
   items,
   note,
 }: {
-  status: ThreadStatus;
+  status: ThreadTier;
   items: ThreadListItem[];
   note?: string;
 }) {
@@ -31,7 +30,8 @@ function Group({
         {note ? <span className="label">{note}</span> : null}
       </div>
 
-      <ul>
+      {/* 폭이 남으면 열을 늘려 쓴다 (DESIGN §4). 한 열 42rem 목록은 여백이 절반을 넘겼다. */}
+      <ul className="lg:grid lg:grid-cols-2 lg:gap-x-16">
         {items.map((item) => (
           <li key={item.id} className="border-b border-line">
             <Link
@@ -72,19 +72,16 @@ export default async function ThreadsPage() {
   });
 
   const grouped = await listThreads(supabase, today);
-  const thisWeek = movedWithin(grouped.active, today, 7);
-  const thisMonth = movedWithin(
-    [...grouped.active, ...grouped.watching],
-    today,
-    30,
-  );
 
   const empty =
-    grouped.active.length + grouped.watching.length + grouped.closed.length ===
+    grouped.active.length +
+      grouped.fresh.length +
+      grouped.watching.length +
+      grouped.closed.length ===
     0;
 
   return (
-    <main className="mx-auto w-full max-w-prose px-5 pt-12 pb-24 sm:px-8">
+    <main className="mx-auto w-full max-w-page px-5 pt-12 pb-24 sm:px-8">
       <header className="border-b-2 border-ink pb-6">
         <p className="label">이어지는 흐름</p>
         <h1 className="font-serif text-display mt-2">이슈</h1>
@@ -96,28 +93,18 @@ export default async function ThreadsPage() {
         </p>
       ) : (
         <>
-          <dl className="mt-8 grid grid-cols-3 gap-4 border-b border-line pb-6">
-            <div>
-              <dt className="label">이번 주 움직임</dt>
-              <dd className="tabular text-title text-ink mt-1">
-                {thisWeek.length}
-              </dd>
-            </div>
-            <div>
-              <dt className="label">이번 달 움직임</dt>
-              <dd className="tabular text-title text-ink mt-1">
-                {thisMonth.length}
-              </dd>
-            </div>
-            <div>
-              <dt className="label">종결</dt>
-              <dd className="tabular text-title text-ink mt-1">
-                {grouped.closed.length}
-              </dd>
-            </div>
-          </dl>
+          {grouped.active.length === 0 ? (
+            <p className="mt-8 text-small text-muted">
+              전개가 2회 이상 이어진 이슈가 아직 없다. 브리핑이 쌓이면 올라온다.
+            </p>
+          ) : null}
 
           <Group status="active" items={grouped.active} />
+          <Group
+            status="fresh"
+            items={grouped.fresh}
+            note="한 번 다뤄짐 · 전개가 붙으면 진행 중으로"
+          />
           <Group
             status="watching"
             items={grouped.watching}

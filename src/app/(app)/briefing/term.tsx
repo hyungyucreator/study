@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { saveTerm } from "./actions";
 
@@ -21,6 +21,25 @@ export function Term({
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  // 닫힘 유예. 용어에서 팝오버로 마우스를 옮기는 동안 닫히면 저장을 못 누른다.
+  const closeTimer = useRef<number | null>(null);
+  const openNow = () => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setOpen(true);
+  };
+  const closeSoon = () => {
+    closeTimer.current = window.setTimeout(() => setOpen(false), 200);
+  };
+  useEffect(
+    () => () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
   if (!summary) return <>{term}</>;
 
   const save = () => {
@@ -33,8 +52,8 @@ export function Term({
   return (
     <span
       className="relative inline-block"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={openNow}
+      onMouseLeave={closeSoon}
     >
       <button
         type="button"
@@ -47,9 +66,14 @@ export function Term({
 
       {open ? (
         <span
+          // 틈은 margin이 아니라 padding으로 만든다. 패딩은 호버 영역에 포함되므로
+          // 용어에서 팝오버로 건너가는 동안 mouseleave가 나지 않는다.
+          className="absolute top-full left-0 z-20 block pt-2"
+        >
+        <span
           role="tooltip"
           // 오른쪽 끝 단어에서 화면 밖으로 나가지 않게 뷰포트 폭으로 잘라둔다.
-          className="absolute top-full left-0 z-20 mt-2 block w-[min(20rem,calc(100vw-3rem))] border border-ink bg-bg p-4"
+          className="block w-[min(20rem,calc(100vw-3rem))] border border-ink bg-bg p-4"
         >
           <span className="text-subhead text-ink block">{term}</span>
           <span className="text-small mt-1.5 block text-muted">{summary}</span>
@@ -61,6 +85,7 @@ export function Term({
           >
             {saved ? "단어장에 저장됨" : pending ? "저장 중" : "단어장에 저장"}
           </button>
+        </span>
         </span>
       ) : null}
     </span>

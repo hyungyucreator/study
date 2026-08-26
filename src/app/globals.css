@@ -33,6 +33,14 @@
   --color-gain: #dc2626;
   --color-loss: #2563eb;
 
+  /*
+   * 형광펜 (2026-08-26). 방향색 규칙의 예외가 아니라 다른 채널이다.
+   * 글자색이 아니라 배경이고, 노랑이라 적/청과 헷갈리지 않는다.
+   * 용법은 단 하나: 화면에 한 곳, 오늘의 톱의 핵심 한 줄.
+   * 두 곳부터는 아무것도 강조가 아니다.
+   */
+  --color-mark: #f7edae;
+
   --font-sans: var(--font-pretendard), system-ui, -apple-system, "Segoe UI",
     sans-serif;
   /* 브리핑 제목 전용(font-serif 유틸로 쓴다). 본문과 숫자에는 쓰지 않는다. */

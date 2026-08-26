@@ -57,18 +57,27 @@ function Row({
 function Points({
   points,
   cards,
+  markFirst = false,
 }: {
   points: string[];
   cards: { term: string; summary: string | null }[];
+  /** 첫 불렛에 형광펜. 오늘의 톱에서만 쓴다. 화면에 형광펜은 한 곳뿐이다. */
+  markFirst?: boolean;
 }) {
   return (
     <ul className="mt-3.5 space-y-2">
-      {points.map((point) => (
+      {points.map((point, index) => (
         <li key={point} className="text-body flex gap-2.5 leading-[1.55]">
           <span aria-hidden className="text-faint shrink-0 select-none">
             ·
           </span>
-          <span>
+          <span
+            className={
+              markFirst && index === 0
+                ? "bg-mark box-decoration-clone px-1"
+                : undefined
+            }
+          >
             <WithTerms text={point} cards={cards} />
           </span>
         </li>
@@ -127,7 +136,7 @@ function TopStory({ item }: { item: BriefingItem }) {
             {item.headline ?? item.points[0]}
           </h2>
 
-          <Points points={item.points} cards={item.cards} />
+          <Points points={item.points} cards={item.cards} markFirst />
 
           <div className="mt-4">
             {surprise ? (

@@ -8,7 +8,15 @@ export type ThreadBriefJson = {
   next?: string[];
 };
 
-export type ThreadStatus = "active" | "watching" | "closed";
+/**
+ * 이슈의 단.
+ *
+ * **진행 중은 자격이다. 전개가 2회 이상 이어져야 흐름이다.**
+ * 한 번 다뤄진 것은 하루짜리 뉴스일 수 있다. "새로 등장"에 두고,
+ * 두 번째 전개가 붙으면 올라오고 안 붙으면 조용히 잠든다.
+ * 이래야 목록이 누적을 스스로 보여준다. 전부 진행 중이면 아무것도 진행 중이 아니다.
+ */
+export type ThreadTier = "active" | "fresh" | "watching" | "closed";
 
 export type ThreadRow = {
   id: string;
@@ -22,20 +30,18 @@ export type ThreadRow = {
 };
 
 export type ThreadListItem = ThreadRow & {
-  status: ThreadStatus;
-  /** 시작일로부터 며칠째. */
+  status: ThreadTier;
+  /** 추적 시작일로부터 며칠째. */
   days: number;
 };
 
 /**
- * 이슈 상태.
- *
- * 기간 필터가 아니라 활동량으로 정한다.
  * 종결은 모델이 판단해 closed_on을 찍은 것, 또는 30일 넘게 전개가 없는 것.
  * 안 닫으면 목록이 무한히 자란다.
  */
 const WATCHING_AFTER = 7;
 const CLOSED_AFTER = 30;
+const ACTIVE_NEEDS_ENTRIES = 2;
 
 function daysBetween(from: string, to: string): number {
   const a = new Date(`${from}T00:00:00Z`).getTime();
@@ -43,16 +49,17 @@ function daysBetween(from: string, to: string): number {
   return Math.max(0, Math.round((b - a) / 86400000));
 }
 
-export function statusOf(thread: ThreadRow, today: string): ThreadStatus {
+export function tierOf(thread: ThreadRow, today: string): ThreadTier {
   if (thread.closed_on) return "closed";
   const idle = daysBetween(thread.last_seen_on, today);
   if (idle >= CLOSED_AFTER) return "closed";
   if (idle >= WATCHING_AFTER) return "watching";
-  return "active";
+  return thread.entries >= ACTIVE_NEEDS_ENTRIES ? "active" : "fresh";
 }
 
-export const STATUS_LABEL: Record<ThreadStatus, string> = {
+export const STATUS_LABEL: Record<ThreadTier, string> = {
   active: "진행 중",
+  fresh: "새로 등장",
   watching: "주시 중",
   closed: "종결",
 };
@@ -64,14 +71,15 @@ export function statusNote(item: ThreadListItem): string {
       : `${item.last_seen_on} 이후 전개 없음`;
   }
   if (item.status === "watching") return `마지막 ${item.last_seen_on}`;
+  if (item.status === "fresh") return `${item.started_on} 첫 등장`;
   return `${item.days + 1}일째 · 전개 ${item.entries}회`;
 }
 
-/** 이슈 전체를 상태별로 나눠 돌려준다. */
+/** 이슈 전체를 단별로 나눠 돌려준다. */
 export async function listThreads(
   supabase: SupabaseClient,
   today: string,
-): Promise<Record<ThreadStatus, ThreadListItem[]>> {
+): Promise<Record<ThreadTier, ThreadListItem[]>> {
   const { data } = await supabase
     .from("threads")
     .select(
@@ -81,14 +89,15 @@ export async function listThreads(
     .limit(300);
 
   const rows = (data ?? []) as ThreadRow[];
-  const grouped: Record<ThreadStatus, ThreadListItem[]> = {
+  const grouped: Record<ThreadTier, ThreadListItem[]> = {
     active: [],
+    fresh: [],
     watching: [],
     closed: [],
   };
 
   for (const row of rows) {
-    const status = statusOf(row, today);
+    const status = tierOf(row, today);
     grouped[status].push({
       ...row,
       status,
@@ -102,13 +111,4 @@ export async function listThreads(
   );
 
   return grouped;
-}
-
-/** 최근 N일 안에 전개가 있었던 이슈. 주간·월간 정리에 쓴다. */
-export function movedWithin(
-  items: ThreadListItem[],
-  today: string,
-  days: number,
-): ThreadListItem[] {
-  return items.filter((item) => daysBetween(item.last_seen_on, today) < days);
 }

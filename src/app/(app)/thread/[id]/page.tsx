@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import {
   statusNote,
-  statusOf,
+  tierOf,
   STATUS_LABEL,
   type ThreadRow,
 } from "@/lib/briefing/thread-list";
@@ -70,7 +70,7 @@ export default async function ThreadPage({
   const today = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Seoul",
   });
-  const status = statusOf(thread, today);
+  const status = tierOf(thread, today);
   const days = Math.max(
     0,
     Math.round(
@@ -80,19 +80,29 @@ export default async function ThreadPage({
     ),
   );
 
-  const [{ data: entries }, { data: related }] = await Promise.all([
-    supabase
-      .from("briefing_news")
-      .select("headline, points, source_url, briefings(date)")
-      .eq("thread_id", id)
-      .order("position"),
-    supabase
-      .from("thread_news")
-      .select("published_at, raw_news(title, source, url)")
-      .eq("thread_id", id)
-      .order("published_at", { ascending: false })
-      .limit(30),
-  ]);
+  const [{ data: entries }, { data: related }, { data: oldest }] =
+    await Promise.all([
+      supabase
+        .from("briefing_news")
+        .select("headline, points, source_url, briefings(date)")
+        .eq("thread_id", id)
+        .order("position"),
+      supabase
+        .from("thread_news")
+        .select("published_at, raw_news(title, source, url)")
+        .eq("thread_id", id)
+        .order("published_at", { ascending: false })
+        .limit(30),
+      // 이슈의 실제 시작은 추적 시작보다 이르다. 데이터가 말할 수 있는
+      // 가장 이른 지점(가장 오래된 관련 기사)까지만 말한다. 추정하지 않는다.
+      supabase
+        .from("thread_news")
+        .select("published_at")
+        .eq("thread_id", id)
+        .order("published_at", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
   const timeline = ((entries ?? []) as unknown as Entry[])
     .map((entry) => ({ ...entry, date: entry.briefings?.date ?? "" }))
@@ -117,7 +127,11 @@ export default async function ThreadPage({
         <h1 className="font-serif text-display mt-3">{thread.title}</h1>
         <p className="tabular label mt-3">
           {STATUS_LABEL[status]} ·{" "}
-          {statusNote({ ...thread, status, days })} · {thread.started_on} 시작
+          {statusNote({ ...thread, status, days })} · 추적 시작{" "}
+          {thread.started_on}
+          {oldest && oldest.published_at.slice(0, 10) < thread.started_on
+            ? ` · 관련 기사 ${oldest.published_at.slice(0, 10)}부터`
+            : null}
         </p>
       </header>
 
