@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   assetLabel,
@@ -402,6 +402,161 @@ function Section({
 }
 
 /**
+ * 차례로 읽기. 한 장에 한 건, 옆으로 넘긴다.
+ *
+ * 지면은 훑는 화면이고 이것은 정독하는 화면이다. 매일 의식으로 읽을 때는
+ * 순서대로 착착 넘기는 쪽이 스크롤보다 빠르고, 넘김이 곧 읽음이라
+ * 진행이 저절로 쌓인다. 스와이프(터치), 방향키, 버튼 전부 받는다.
+ */
+function Reader({
+  items,
+  index,
+  onPrev,
+  onNext,
+  onClose,
+}: {
+  items: BriefingItem[];
+  index: number;
+  onPrev: () => void;
+  onNext: () => void;
+  onClose: () => void;
+}) {
+  const item = items[index];
+  const last = index === items.length - 1;
+  const surprise = informativeSurprise(item.surprise);
+  const touchX = useRef<number | null>(null);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "ArrowRight") onNext();
+      else if (event.key === "ArrowLeft") onPrev();
+      else if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onNext, onPrev, onClose]);
+
+  // 카드 모드가 열려 있는 동안 뒤 지면이 스크롤되면 안 된다.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="차례로 읽기"
+      className="fixed inset-0 z-50 flex flex-col bg-bg"
+      onTouchStart={(event) => {
+        touchX.current = event.touches[0].clientX;
+      }}
+      onTouchEnd={(event) => {
+        if (touchX.current === null) return;
+        const dx = event.changedTouches[0].clientX - touchX.current;
+        touchX.current = null;
+        if (Math.abs(dx) < 48) return;
+        if (dx < 0) onNext();
+        else onPrev();
+      }}
+    >
+      <header className="border-b border-line">
+        <div className="mx-auto flex w-full max-w-prose items-baseline justify-between gap-4 px-5 py-4 sm:px-8">
+          <p className="tabular label">
+            {index + 1} / {items.length}
+          </p>
+          <p className="label">{sectionLabel(item.section)}</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="label underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
+          >
+            닫기
+          </button>
+        </div>
+        <div className="h-0.5 w-full bg-line">
+          <div
+            className="h-full bg-ink transition-all duration-200"
+            style={{ width: `${((index + 1) / items.length) * 100}%` }}
+          />
+        </div>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-prose px-5 py-10 sm:px-8">
+          {item.top ? <p className="label">오늘의 톱</p> : null}
+          <h2 className="font-serif text-title lg:text-display mt-2 leading-[1.25] break-keep text-ink">
+            {item.headline ?? item.points[0]}
+          </h2>
+
+          {item.stat ? (
+            <p className="mt-5 flex items-baseline gap-3">
+              <span
+                className={`tabular text-display ${statClass(item.stat.direction)}`}
+              >
+                {item.stat.value}
+              </span>
+              <span className="label">{item.stat.label}</span>
+            </p>
+          ) : null}
+
+          <Points points={item.points} cards={item.cards} markFirst={item.top} />
+
+          <div className="mt-5">
+            {surprise ? (
+              <Row label="예상 대비">
+                <WithTerms text={surprise} cards={item.cards} />
+              </Row>
+            ) : null}
+            {item.context ? (
+              <Row label="맥락">
+                <WithTerms text={item.context} cards={item.cards} />
+              </Row>
+            ) : null}
+            {item.outlook ? (
+              <Row label="지켜볼 것">
+                <WithTerms text={item.outlook} cards={item.cards} />
+              </Row>
+            ) : null}
+            {item.investmentNote ? (
+              <Row label="투자 함의">
+                <WithTerms text={item.investmentNote} cards={item.cards} />
+              </Row>
+            ) : null}
+          </div>
+
+          <Meta item={item} />
+        </div>
+      </div>
+
+      <footer className="border-t border-line">
+        <div className="mx-auto flex w-full max-w-prose items-baseline justify-between px-5 py-4 sm:px-8">
+          <button
+            type="button"
+            onClick={onPrev}
+            disabled={index === 0}
+            className="label underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink disabled:no-underline disabled:opacity-40"
+          >
+            이전
+          </button>
+          <p className="label hidden sm:block">방향키·스와이프로 넘긴다</p>
+          <button
+            type="button"
+            onClick={onNext}
+            className="text-subhead text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
+          >
+            {last ? "끝내기" : "다음"}
+          </button>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+/**
  * 파이프라인이 거른 날을 알린다.
  *
  * 자동화의 실패는 조용하다. 브리핑이 하루 비어도 사용자는 "오늘은 뉴스가 없었나"로
@@ -531,6 +686,39 @@ export function BriefingBody({
   const readCount = allUrls.filter((url) => read.has(url)).length;
   const anyOpen = openSet.size > 0;
 
+  // 차례로 읽기. 읽기 순서는 지면 순서와 같다: 톱 → 국내 → 국제.
+  const readerItems = useMemo(() => {
+    const list: BriefingItem[] = view.top ? [view.top] : [];
+    for (const column of columns) {
+      for (const group of column.groups) list.push(...group.items);
+    }
+    return list;
+    // columns는 view에서 파생된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
+
+  const [readerIndex, setReaderIndex] = useState<number | null>(null);
+
+  // 카드를 보이는 것이 곧 읽는 것이다. 이동 이벤트에서 함께 처리한다.
+  const readerGo = (index: number) => {
+    setReaderIndex(index);
+    markRead(readerItems[index].sourceUrl, true);
+  };
+  const openReader = () => {
+    const firstUnread = readerItems.findIndex(
+      (item) => !read.has(item.sourceUrl),
+    );
+    readerGo(firstUnread === -1 ? 0 : firstUnread);
+  };
+  const readerPrev = () => {
+    if (readerIndex !== null && readerIndex > 0) readerGo(readerIndex - 1);
+  };
+  const readerNext = () => {
+    if (readerIndex === null) return;
+    if (readerIndex >= readerItems.length - 1) setReaderIndex(null);
+    else readerGo(readerIndex + 1);
+  };
+
   return (
     <main className="mx-auto w-full max-w-page px-5 pt-12 pb-24 sm:px-8">
       <header className="border-b-2 border-ink pb-6">
@@ -564,9 +752,18 @@ export function BriefingBody({
       ) : null}
 
       <div className="mt-10 flex items-baseline justify-between">
-        <p className="tabular label">
-          읽음 {readCount}/{allUrls.length}
-        </p>
+        <div className="flex items-baseline gap-6">
+          <button
+            type="button"
+            onClick={openReader}
+            className="text-subhead text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
+          >
+            차례로 읽기
+          </button>
+          <p className="tabular label">
+            읽음 {readCount}/{allUrls.length}
+          </p>
+        </div>
         <button
           type="button"
           onClick={() =>
@@ -645,6 +842,16 @@ export function BriefingBody({
             ))}
           </div>
         </section>
+      ) : null}
+
+      {readerIndex !== null && readerItems[readerIndex] ? (
+        <Reader
+          items={readerItems}
+          index={readerIndex}
+          onPrev={readerPrev}
+          onNext={readerNext}
+          onClose={() => setReaderIndex(null)}
+        />
       ) : null}
 
       {past.length > 0 ? (
