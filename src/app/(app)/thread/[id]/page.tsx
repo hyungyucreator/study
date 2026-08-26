@@ -32,7 +32,7 @@ function BriefBlock({ label, items }: { label: string; items?: string[] }) {
       <h3 className="label">{label}</h3>
       <ul className="mt-2 space-y-2">
         {items.map((line) => (
-          <li key={line} className="text-body flex gap-2.5 leading-[1.55]">
+          <li key={line} className="text-body flex gap-2.5 ">
             <span aria-hidden className="text-faint shrink-0 select-none">
               ·
             </span>
@@ -125,14 +125,18 @@ export default async function ThreadPage({
           이슈 목록
         </Link>
         <h1 className="font-serif text-display mt-3">{thread.title}</h1>
-        <p className="tabular label mt-3">
-          {STATUS_LABEL[status]} ·{" "}
-          {statusNote({ ...thread, status, days })} · 추적 시작{" "}
-          {thread.started_on}
-          {oldest && oldest.published_at.slice(0, 10) < thread.started_on
-            ? ` · 관련 기사 ${oldest.published_at.slice(0, 10)}부터`
-            : null}
-        </p>
+        <div className="mt-3 space-y-1">
+          <p className="tabular label flex flex-wrap gap-x-3">
+            <span>{STATUS_LABEL[status]}</span>
+            <span>{statusNote({ ...thread, status, days })}</span>
+          </p>
+          <p className="tabular label flex flex-wrap gap-x-3">
+            <span>추적 시작 {thread.started_on}</span>
+            {oldest && oldest.published_at.slice(0, 10) < thread.started_on ? (
+              <span>관련 기사 {oldest.published_at.slice(0, 10)}부터</span>
+            ) : null}
+          </p>
+        </div>
       </header>
 
       {brief ? (
@@ -161,7 +165,7 @@ export default async function ThreadPage({
                 {(entry.points ?? []).map((point) => (
                   <li
                     key={point}
-                    className="text-body flex gap-2.5 leading-[1.55]"
+                    className="text-body flex gap-2.5 "
                   >
                     <span aria-hidden className="text-faint shrink-0">
                       ·
@@ -197,8 +201,9 @@ export default async function ThreadPage({
                 >
                   {item.raw_news!.title}
                 </a>
-                <p className="tabular label mt-1">
-                  {item.published_at.slice(0, 10)} · {item.raw_news!.source}
+                <p className="tabular label mt-1 flex flex-wrap gap-x-3">
+                  <span>{item.published_at.slice(0, 10)}</span>
+                  <span>{item.raw_news!.source}</span>
                 </p>
               </li>
             ))}

@@ -35,9 +35,7 @@ export default async function GlossaryPage() {
       </header>
 
       {cards.length === 0 ? (
-        <p className="mt-8 text-small text-muted">
-          아직 담은 용어가 없다. 브리핑에서 점선 밑줄이 그어진 말을 눌러 담을 것.
-        </p>
+        <p className="mt-8 label">담은 용어 없음</p>
       ) : (
         <ul className="mt-8">
           {cards.map((row) => (

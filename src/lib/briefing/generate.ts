@@ -41,6 +41,8 @@ export type GenerateResult = {
   terms: number;
   /** 본문을 가져온 기사 수 / 전체 선별 수. 추출기 건강 신호다. */
   bodies: string;
+  /** 검증 후 남은 자산군 종합 수. 0이면 화면에서 섹션이 사라진다. */
+  outlook: number;
 };
 
 function kstDate(): string {
@@ -78,6 +80,7 @@ function trimPoint(text: string) {
 function validate(
   payload: BriefingPayload,
   allowed: Map<string, SourceRef>,
+  clusterOf: Map<string, Cluster>,
 ): { payload: BriefingPayload; dropped: string[] } {
   const dropped: string[] = [];
   const seen = new Set<string>();
@@ -120,8 +123,25 @@ function validate(
     .map((item) => ({
       ...item,
       note: trimPoint(item.note ?? ""),
-      // 근거는 실제로 실린 기사만 남긴다.
-      evidence: (item.evidence ?? []).filter((url) => seen.has(url)),
+      // 근거를 클러스터 단위로 정규화한다. 모델이 같은 사건의 다른 기사 url을
+      // 근거로 써도 그 클러스터의 채택 항목 url로 되돌린다. 정확 일치만 받던
+      // 시절엔 전부 걸러져 자산군 종합이 통째로 사라진 날이 있었다 (8/26 실측).
+      evidence: [
+        ...new Set(
+          (item.evidence ?? [])
+            .map((url) => {
+              if (seen.has(url)) return url;
+              const cluster = clusterOf.get(url);
+              if (!cluster) return null;
+              return (
+                [cluster.lead_item, ...cluster.others]
+                  .map((entry) => entry.url)
+                  .find((candidate) => seen.has(candidate)) ?? null
+              );
+            })
+            .filter((url): url is string => url !== null),
+        ),
+      ],
     }))
     .filter((item) => item.evidence.length > 0);
 
@@ -191,6 +211,7 @@ export async function generateBriefing(
         threads: { total: 0, created: 0 },
         terms: 0,
         bodies: "0/0",
+        outlook: 0,
       };
     }
   }
@@ -240,16 +261,16 @@ export async function generateBriefing(
   });
 
   const allowed = urlMap(allClusters);
-  const { payload, dropped } = validate(data, allowed);
 
-  // 같은 사건을 다룬 다른 매체 기사. 카드의 "함께 보도"가 된다.
-  // 리드문만으로 부족할 때 독자가 넓혀 볼 경로다. 제목+링크만 싣는다 (§2-3).
+  // url → 그 기사가 속한 클러스터. evidence 정규화와 "함께 보도"가 같이 쓴다.
   const clusterOf = new Map<string, Cluster>();
   for (const cluster of allClusters) {
     for (const entry of [cluster.lead_item, ...cluster.others]) {
       clusterOf.set(entry.url, cluster);
     }
   }
+
+  const { payload, dropped } = validate(data, allowed, clusterOf);
   const relatedOf = (url: string) => {
     const cluster = clusterOf.get(url);
     if (!cluster) return [];
@@ -282,6 +303,7 @@ export async function generateBriefing(
       threads: { total: 0, created: 0 },
       terms: 0,
       bodies: `${bodies.size}/${allClusters.length}`,
+      outlook: payload.asset_outlook.length,
     };
   }
 
@@ -428,5 +450,6 @@ export async function generateBriefing(
     threads: threadStats,
     terms: termCount,
     bodies: `${bodies.size}/${allClusters.length}`,
+    outlook: payload.asset_outlook.length,
   };
 }

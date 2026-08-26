@@ -114,6 +114,7 @@ function summarize(result: unknown): Record<string, unknown> | null {
     "terms",
     "droppedUrls",
     "bodies",
+    "outlook",
   ]) {
     if (key in value) picked[key] = value[key];
   }

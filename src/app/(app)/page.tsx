@@ -42,9 +42,7 @@ export default async function Home() {
   return (
     <main className="mx-auto w-full max-w-page px-5 pt-10 pb-24 sm:px-8">
       {portfolio.holdings.length === 0 ? (
-        <p className="text-small text-muted">
-          등록된 자산이 없다. 보유자산에서 KIS 동기화를 하거나 직접 입력할 것.
-        </p>
+        <p className="label">등록된 자산 없음</p>
       ) : (
         <section>
           <h1 className="label">총자산</h1>

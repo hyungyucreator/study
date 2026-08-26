@@ -129,7 +129,7 @@ function Points({
   return (
     <ul className="mt-3.5 space-y-2">
       {points.map((point, index) => (
-        <li key={point} className="text-body flex gap-2.5 leading-[1.55]">
+        <li key={point} className="text-body flex gap-2.5">
           <span aria-hidden className="text-faint shrink-0 select-none">
             ·
           </span>
@@ -196,8 +196,44 @@ function Meta({ item }: { item: BriefingItem }) {
   );
 }
 
+/** 내용. 문장체 문단이다. 행간은 text-body 토큰 값을 그대로 쓴다. */
+function BodyParagraphs({ item }: { item: BriefingItem }) {
+  return (
+    <div className="mt-4 space-y-3.5">
+      {item.body.map((paragraph) => (
+        <p key={paragraph} className="text-body">
+          <WithTerms text={paragraph} cards={item.cards} />
+        </p>
+      ))}
+    </div>
+  );
+}
+
 /**
- * 항목의 몸통. 내용(문장체 문단) → 인사이트(개조식 불렛) 순서다.
+ * 인사이트 박스. 신문의 '해설 박스' 은유다.
+ * 내용(종이 바탕)과 면(surface)으로 갈라져야 눈이 경계를 잡는다.
+ * 분면 패널과 같은 면 문법이라 시스템이 하나로 읽힌다.
+ */
+function InsightsBox({
+  item,
+  markFirst = false,
+}: {
+  item: BriefingItem;
+  /** 첫 인사이트에 형광펜. 오늘의 톱에서만. 화면에 형광펜은 한 곳뿐이다. */
+  markFirst?: boolean;
+}) {
+  if (item.points.length === 0) return null;
+
+  return (
+    <div className="bg-surface border-line mt-6 border px-5 pt-4 pb-5">
+      <p className="label">인사이트</p>
+      <Points points={item.points} cards={item.cards} markFirst={markFirst} />
+    </div>
+  );
+}
+
+/**
+ * 항목의 몸통. 내용(문장체 문단) → 인사이트 박스 순서다.
  * 모든 항목이 같은 골격이라 화면도 같아진다.
  * 옛 브리핑(body 없음)은 불렛 + 라벨 행으로 폴백한다.
  */
@@ -206,7 +242,6 @@ function ItemContent({
   markFirstInsight = false,
 }: {
   item: BriefingItem;
-  /** 첫 인사이트에 형광펜. 오늘의 톱에서만. 화면에 형광펜은 한 곳뿐이다. */
   markFirstInsight?: boolean;
 }) {
   const surprise = informativeSurprise(item.surprise);
@@ -214,23 +249,8 @@ function ItemContent({
   if (item.body.length > 0) {
     return (
       <>
-        <div className="mt-4 space-y-3.5">
-          {item.body.map((paragraph) => (
-            <p key={paragraph} className="text-body leading-[1.7]">
-              <WithTerms text={paragraph} cards={item.cards} />
-            </p>
-          ))}
-        </div>
-        {item.points.length > 0 ? (
-          <div className="mt-6">
-            <p className="label">인사이트</p>
-            <Points
-              points={item.points}
-              cards={item.cards}
-              markFirst={markFirstInsight}
-            />
-          </div>
-        ) : null}
+        <BodyParagraphs item={item} />
+        <InsightsBox item={item} markFirst={markFirstInsight} />
       </>
     );
   }
@@ -280,45 +300,83 @@ function TopStory({
 }) {
   const stat = item.stat;
 
-  return (
-    <section className="border-b-2 border-ink py-9 lg:py-11">
-      <div className="lg:flex lg:items-start lg:justify-between lg:gap-16">
+  const kicker = (
+    <div className="flex items-center gap-3">
+      <p className="label flex items-baseline gap-x-3">
+        <span>오늘의 톱</span>
+        <span className="text-faint">{sectionLabel(item.section)}</span>
+      </p>
+      <ReadDot
+        read={control.isRead(item.sourceUrl)}
+        onToggle={() => control.toggleRead(item.sourceUrl)}
+      />
+    </div>
+  );
+
+  const headline = (
+    <h2 className="mt-3">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="font-serif text-title lg:text-display text-left break-keep text-ink decoration-line-strong underline-offset-8 hover:underline"
+      >
+        {item.headline ?? item.points[0]}
+      </button>
+    </h2>
+  );
+
+  // 옛 브리핑(body 없음)은 한 열 폴백.
+  if (item.body.length === 0) {
+    return (
+      <section className="border-b-2 border-ink py-9 lg:py-11">
         <div className="min-w-0 max-w-prose">
-          <div className="flex items-center gap-3">
-            <p className="label flex items-baseline gap-x-3">
-              <span>오늘의 톱</span>
-              <span className="text-faint">{sectionLabel(item.section)}</span>
-            </p>
-            <ReadDot
-              read={control.isRead(item.sourceUrl)}
-              onToggle={() => control.toggleRead(item.sourceUrl)}
-            />
-          </div>
-          <h2 className="mt-3">
-            <button
-              type="button"
-              onClick={onOpen}
-              className="font-serif text-title lg:text-display text-left leading-[1.25] break-keep text-ink decoration-line-strong underline-offset-8 hover:underline"
-            >
-              {item.headline ?? item.points[0]}
-            </button>
-          </h2>
-
+          {kicker}
+          {headline}
           <ItemContent item={item} markFirstInsight />
-
           <Meta item={item} />
         </div>
+      </section>
+    );
+  }
 
-        {stat ? (
-          <div className="mt-8 shrink-0 border-t border-line pt-5 lg:mt-1.5 lg:w-56 lg:border-t-0 lg:border-l lg:border-line lg:pt-1 lg:pl-10">
-            <p className="label">{stat.label}</p>
-            <p
-              className={`tabular text-display mt-1.5 ${statClass(stat.direction)}`}
-            >
-              {stat.value}
+  // 왼쪽은 서사(내용), 오른쪽 레일은 해석(숫자 + 인사이트).
+  // stat이 없는 날도 인사이트 박스가 레일을 채워 오른쪽이 비지 않는다.
+  return (
+    <section className="border-b-2 border-ink py-9 lg:py-11">
+      <div className="lg:flex lg:items-start lg:gap-14">
+        <div className="min-w-0 max-w-prose lg:flex-1">
+          {kicker}
+          {headline}
+          {stat ? (
+            <p className="mt-5 flex items-baseline gap-3 lg:hidden">
+              <span
+                className={`tabular text-title ${statClass(stat.direction)}`}
+              >
+                {stat.value}
+              </span>
+              <span className="label">{stat.label}</span>
             </p>
-          </div>
-        ) : null}
+          ) : null}
+          <BodyParagraphs item={item} />
+        </div>
+
+        <aside className="mt-2 lg:mt-1 lg:w-80 lg:shrink-0 lg:border-l lg:border-line lg:pl-10">
+          {stat ? (
+            <div className="hidden lg:block">
+              <p className="label">{stat.label}</p>
+              <p
+                className={`tabular text-display mt-1.5 ${statClass(stat.direction)}`}
+              >
+                {stat.value}
+              </p>
+            </div>
+          ) : null}
+          <InsightsBox item={item} markFirst />
+        </aside>
+      </div>
+
+      <div className="max-w-prose">
+        <Meta item={item} />
       </div>
     </section>
   );
@@ -481,7 +539,7 @@ function Reader({
         {item ? (
           <div className="mx-auto w-full max-w-prose px-5 py-10 sm:px-8">
             {item.top ? <p className="label">오늘의 톱</p> : null}
-            <h2 className="font-serif text-title lg:text-display mt-2 leading-[1.25] break-keep text-ink">
+            <h2 className="font-serif text-title lg:text-display mt-2 break-keep text-ink">
               {item.headline ?? item.points[0]}
             </h2>
 
@@ -571,8 +629,12 @@ function PipelineNotice({ problems }: { problems: Health["problems"] }) {
       <h2 className="label">파이프라인</h2>
       <ul className="mt-2 space-y-1">
         {problems.map((problem) => (
-          <li key={problem.date} className="tabular text-small">
-            {problem.date} · {problem.note}
+          <li
+            key={problem.date}
+            className="tabular text-small flex flex-wrap gap-x-3"
+          >
+            <span>{problem.date}</span>
+            <span>{problem.note}</span>
           </li>
         ))}
       </ul>
@@ -775,7 +837,7 @@ export function BriefingBody({
                     {directionLabel(item.asset_class, item.direction)}
                   </span>
                 </div>
-                <p className="text-body mt-1.5 leading-[1.6]">{item.note}</p>
+                <p className="text-body mt-1.5">{item.note}</p>
                 {item.evidence.length > 0 ? (
                   <ul className="mt-2.5 space-y-1">
                     {item.evidence.map((url) => {

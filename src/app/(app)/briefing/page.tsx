@@ -16,9 +16,12 @@ export default async function BriefingPage() {
 
   if (!view) {
     return (
-      <main className="mx-auto w-full max-w-prose px-5 pt-10 pb-24 sm:px-8">
-        <h1 className="text-title">브리핑</h1>
-        <p className="mt-4 text-small text-muted">아직 발행된 브리핑이 없다.</p>
+      <main className="mx-auto w-full max-w-page px-5 pt-12 pb-24 sm:px-8">
+        <header className="border-b-2 border-ink pb-6">
+          <p className="label">데일리 브리핑</p>
+          <h1 className="font-serif text-display mt-2">브리핑</h1>
+        </header>
+        <p className="mt-8 label">발행된 브리핑 없음</p>
       </main>
     );
   }

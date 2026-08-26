@@ -21,7 +21,10 @@ export function Nav() {
   return (
     <nav className="flex items-baseline gap-5">
       {ITEMS.map((item) => {
-        const active = pathname.startsWith(item.href);
+        // 이슈 상세는 /thread/[id]라 /threads로 시작하지 않는다. 그래도 이슈다.
+        const active =
+          pathname.startsWith(item.href) ||
+          (item.href === "/threads" && pathname.startsWith("/thread"));
         return (
           <Link
             key={item.href}
@@ -29,7 +32,7 @@ export function Nav() {
             aria-current={active ? "page" : undefined}
             className={
               active
-                ? "text-subhead text-ink underline decoration-ink decoration-2 underline-offset-[7px]"
+                ? "text-subhead text-ink underline decoration-ink decoration-2 underline-offset-8"
                 : "text-subhead text-faint hover:text-ink"
             }
           >
