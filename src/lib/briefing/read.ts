@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Gauge } from "@/lib/macro";
 
 import type { AssetOutlook } from "./asset-classes";
-import { SECTIONS, type SectionKey } from "./schema";
+import { SECTIONS, type SectionKey, type TopStat } from "./schema";
 
 /**
  * 화면용 브리핑 조회.
@@ -43,6 +43,10 @@ export type BriefingItem = {
   thread: ItemThread | null;
   /** 본문에 밑줄을 그을 용어와 그 설명. */
   cards: TermCard[];
+  /** 오늘의 톱 여부. 하루 한 건. */
+  top: boolean;
+  /** 톱을 대표하는 숫자. 톱이 아니면 null. */
+  stat: TopStat | null;
 };
 
 export type BriefingSection = {
@@ -63,6 +67,8 @@ export type BriefingView = {
   count: number;
   /** 오늘 움직인 이슈. 전개가 2회 이상인 것부터. */
   threads: ItemThread[];
+  /** 오늘의 톱. 옛 브리핑에는 없다. */
+  top: BriefingItem | null;
 };
 
 type NewsRow = {
@@ -83,6 +89,8 @@ type NewsRow = {
     context?: string;
     outlook?: string;
     investment_note?: string | null;
+    top?: boolean;
+    top_stat?: TopStat | null;
   } | null;
 };
 
@@ -126,6 +134,8 @@ function toItem(
     cards: (row.terms ?? [])
       .map((term) => cards.get(term))
       .filter((card): card is TermCard => card !== undefined),
+    top: meta.top === true,
+    stat: meta.top === true ? (meta.top_stat ?? null) : null,
   };
 }
 
@@ -230,6 +240,7 @@ export async function loadBriefing(
     outlook: (briefing.asset_outlook ?? []) as AssetOutlook[],
     count: items.length,
     threads: todayThreads,
+    top: items.find((item) => item.top) ?? null,
   };
 }
 

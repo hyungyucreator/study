@@ -7,6 +7,7 @@ import {
   sortOutlook,
 } from "@/lib/briefing/asset-classes";
 import type { BriefingItem, BriefingView } from "@/lib/briefing/read";
+import { sectionLabel } from "@/lib/briefing/schema";
 import type { Health } from "@/lib/ops/health";
 
 import { WithTerms } from "./term";
@@ -16,14 +17,26 @@ import { WithTerms } from "./term";
  *
  * 축이 둘이다. 국내와 국제, 경제와 정치·사회.
  * **넓은 화면에서는 국내를 왼쪽, 국제를 오른쪽에 세운다.**
- * 4분면으로 나눠놓고 세로로 일렬로 늘어놓으면 축이 보이지 않는다.
- * 나란히 놓아야 "내 주변"과 "바깥 세상"을 한눈에 비교할 수 있다.
  *
- * 본문은 개조식 불렛이다. 읽는 사람은 훑어본다.
- * 그래서 불렛이 화면에서 가장 큰 본문 크기를 가진다.
+ * 위계는 세 단이다. **오늘의 톱 1건 → 각 부의 리드 → 단신.**
+ * 20건이 전부 같은 무게면 편집이 없는 것이다. 무엇이 중요한지는
+ * 색이나 배지가 아니라 크기와 밀도가 말한다.
  *
  * 색은 방향에만 쓴다. 적이 상방, 청이 하방이다 (DESIGN.md §2).
  */
+
+/** 톱 숫자의 방향색. 보합·수준 자체가 뉴스면 무채색. */
+function statClass(direction: "up" | "down" | "flat") {
+  if (direction === "up") return "text-gain";
+  if (direction === "down") return "text-loss";
+  return "text-ink";
+}
+
+/** "시장 예상치 확인 불가"는 정보가 아니다. 저장은 하되 싣지 않는다. */
+function informativeSurprise(surprise: string | null): string | null {
+  if (!surprise || surprise.includes("확인 불가")) return null;
+  return surprise;
+}
 
 /** 라벨 + 내용 한 줄. 내용이 한 줄 명사구라 좌측 라벨이 스캔에 유리하다. */
 function Row({
@@ -64,21 +77,132 @@ function Points({
   );
 }
 
+/** 이슈와 출처를 한 줄로. 항목마다 라벨 행을 반복하면 표처럼 굳는다. */
+function Meta({ item }: { item: BriefingItem }) {
+  return (
+    <p className="label mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      {item.thread ? (
+        <>
+          <Link
+            href={`/thread/${item.thread.id}`}
+            className="underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
+          >
+            {item.thread.title}
+          </Link>
+          {item.thread.entries > 1 ? (
+            <span className="tabular">{item.thread.entries}번째 전개</span>
+          ) : null}
+          <span aria-hidden className="text-faint select-none">
+            ·
+          </span>
+        </>
+      ) : null}
+      <a
+        href={item.sourceUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
+      >
+        {item.sourceName ?? "원문"}
+      </a>
+    </p>
+  );
+}
+
+/**
+ * 오늘의 톱. 하루 한 건, 두 열 위에 전면으로 세운다.
+ * 초점이 하나 생겨야 나머지의 단조로움이 리듬이 된다.
+ * 숫자는 이 화면에서 색을 쓸 수 있는 유일한 자리다. 크게 쓴다.
+ */
+function TopStory({ item }: { item: BriefingItem }) {
+  const stat = item.stat;
+  const surprise = informativeSurprise(item.surprise);
+
+  return (
+    <section className="border-b-2 border-ink py-9 lg:py-11">
+      <div className="lg:flex lg:items-start lg:justify-between lg:gap-16">
+        <div className="min-w-0 max-w-prose">
+          <p className="label">오늘의 톱 · {sectionLabel(item.section)}</p>
+          <h2 className="font-serif text-title lg:text-display mt-3 leading-[1.25] break-keep text-ink">
+            {item.headline ?? item.points[0]}
+          </h2>
+
+          <Points points={item.points} cards={item.cards} />
+
+          <div className="mt-4">
+            {surprise ? (
+              <Row label="예상 대비">
+                <WithTerms text={surprise} cards={item.cards} />
+              </Row>
+            ) : null}
+            {item.context ? (
+              <Row label="맥락">
+                <WithTerms text={item.context} cards={item.cards} />
+              </Row>
+            ) : null}
+            {item.outlook ? (
+              <Row label="지켜볼 것">
+                <WithTerms text={item.outlook} cards={item.cards} />
+              </Row>
+            ) : null}
+          </div>
+
+          <Meta item={item} />
+        </div>
+
+        {stat ? (
+          <div className="mt-8 shrink-0 border-t border-line pt-5 lg:mt-1.5 lg:w-56 lg:border-t-0 lg:border-l lg:border-line lg:pt-1 lg:pl-10">
+            <p className="label">{stat.label}</p>
+            <p
+              className={`tabular text-display mt-1.5 ${statClass(stat.direction)}`}
+            >
+              {stat.value}
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * 기사 하나. 리드는 전체를, 단신은 헤드라인과 불렛만 싣는다.
+ * 맥락·지켜볼 것은 리드에만 준다. 모든 항목이 모든 필드를 가지면
+ * 화면이 표가 되고, 표는 훑을 수는 있어도 읽히지는 않는다.
+ */
 function Article({ item, lead }: { item: BriefingItem; lead: boolean }) {
+  const surprise = informativeSurprise(item.surprise);
+
+  if (!lead) {
+    return (
+      <article className="border-b border-line py-5 last:border-b-0">
+        <h4 className="font-serif text-body font-semibold break-keep text-ink">
+          {item.headline ?? item.points[0]}
+        </h4>
+        <Points points={item.points} cards={item.cards} />
+        {surprise ? (
+          <p className="mt-3 text-small text-muted">
+            <span className="label mr-2">예상 대비</span>
+            <WithTerms text={surprise} cards={item.cards} />
+          </p>
+        ) : null}
+        <Meta item={item} />
+      </article>
+    );
+  }
+
   return (
     <article className="border-b border-line py-7 first:pt-5 last:border-b-0">
-      <h4
-        className={`font-serif text-ink ${lead ? "text-lead" : "text-heading"}`}
-      >
+      <h4 className="font-serif text-lead break-keep text-ink">
         {item.headline ?? item.points[0]}
       </h4>
 
       <Points points={item.points} cards={item.cards} />
 
       <div className="mt-4">
-        {item.surprise ? (
+        {surprise ? (
           <Row label="예상 대비">
-            <WithTerms text={item.surprise} cards={item.cards} />
+            <WithTerms text={surprise} cards={item.cards} />
           </Row>
         ) : null}
         {item.context ? (
@@ -91,40 +215,14 @@ function Article({ item, lead }: { item: BriefingItem; lead: boolean }) {
             <WithTerms text={item.outlook} cards={item.cards} />
           </Row>
         ) : null}
-
         {item.investmentNote ? (
           <Row label="투자 함의">
             <WithTerms text={item.investmentNote} cards={item.cards} />
           </Row>
         ) : null}
-
-        {item.thread ? (
-          <Row label="이슈">
-            <Link
-              href={`/thread/${item.thread.id}`}
-              className="text-small underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
-            >
-              {item.thread.title}
-            </Link>
-            {item.thread.entries > 1 ? (
-              <span className="tabular label ml-2">
-                {item.thread.entries}번째 전개
-              </span>
-            ) : null}
-          </Row>
-        ) : null}
-
-        <Row label="출처">
-          <a
-            href={item.sourceUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-small text-muted underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
-          >
-            {item.sourceName ?? "원문"}
-          </a>
-        </Row>
       </div>
+
+      <Meta item={item} />
     </article>
   );
 }
@@ -188,8 +286,12 @@ export function BriefingBody({
   const past = archive.filter((date) => date !== view.date);
   const [year, month, day] = view.date.split("-");
 
+  // 톱은 전면에 세우고 원래 섹션에서는 뺀다. 같은 기사가 두 번 나오면 안 된다.
+  const strip = (items: BriefingItem[]) =>
+    items.filter((item) => item !== view.top);
+
   const find = (key: string) =>
-    view.sections.find((section) => section.key === key)?.items ?? [];
+    strip(view.sections.find((section) => section.key === key)?.items ?? []);
 
   // 자산군 근거를 그 기사의 헤드라인으로 되돌린다. url만 보여주면 알 수 없다.
   const headlines = new Map(
@@ -228,6 +330,8 @@ export function BriefingBody({
       </header>
 
       <PipelineNotice problems={health?.problems ?? []} />
+
+      {view.top ? <TopStory item={view.top} /> : null}
 
       {view.threads.length > 0 ? (
         <section className="mt-8 border-b border-line pb-6">

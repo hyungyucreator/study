@@ -57,6 +57,7 @@ function emptyPayload(): BriefingPayload {
     kr_politics: [],
     global_politics: [],
     asset_outlook: [],
+    top: { source_url: "", stat: null },
   };
 }
 
@@ -145,6 +146,21 @@ function validate(
       evidence: (item.evidence ?? []).filter((url) => seen.has(url)),
     }))
     .filter((item) => item.evidence.length > 0);
+
+  // 오늘의 톱은 실제 실린 기사여야 한다. 아니면 첫 경제 항목으로 대체한다.
+  // 대체됐으면 stat도 버린다. 다른 기사의 숫자를 달고 나가면 안 된다.
+  const firstItem =
+    result.global_economy[0] ??
+    result.kr_economy[0] ??
+    result.kr_politics[0] ??
+    result.global_politics[0] ??
+    null;
+  const pickedUrl = payload.top?.source_url;
+  if (pickedUrl && seen.has(pickedUrl)) {
+    result.top = { source_url: pickedUrl, stat: payload.top?.stat ?? null };
+  } else {
+    result.top = { source_url: firstItem?.source_url ?? "", stat: null };
+  }
 
   return { payload: result, dropped };
 }
@@ -351,18 +367,24 @@ export async function generateBriefing(
           // fact는 not null이다. 불렛을 줄바꿈으로 이어 붙여 채운다.
           fact: item.points.join("\n"),
           surprise: economy ? asEconomy.surprise : null,
-          implication_json: economy
-            ? {
-                section: section.key,
-                source_name: item.source_name,
-              }
-            : {
-                section: section.key,
-                context: asPolitics.context,
-                outlook: asPolitics.outlook,
-                investment_note: asPolitics.investment_note,
-                source_name: item.source_name,
-              },
+          implication_json: {
+            ...(economy
+              ? {
+                  section: section.key,
+                  source_name: item.source_name,
+                }
+              : {
+                  section: section.key,
+                  context: asPolitics.context,
+                  outlook: asPolitics.outlook,
+                  investment_note: asPolitics.investment_note,
+                  source_name: item.source_name,
+                }),
+            // 오늘의 톱 표시. 별도 컬럼 대신 여기 둔다. 하루 한 건뿐이다.
+            ...(payload.top.source_url === item.source_url
+              ? { top: true, top_stat: payload.top.stat }
+              : {}),
+          },
           source_url: item.source_url,
           position: sectionIndex * 100 + index,
         };
