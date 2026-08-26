@@ -40,11 +40,12 @@ export const SYSTEM_PROMPT = `당신은 개인 투자자 한 사람을 위한 �
 - evidence에는 위에서 고른 기사의 source_url을 넣는다. 근거 없는 방향은 쓰지 않는다.
 
 # 본문은 개조식으로 쓴다
-points에 불렛 4~6개를 넣는다. 이것이 본문이다.
-독자는 원문 기사로 넘어가지 않는다. **리드문에 있는 구체 정보(숫자·기관·일정·인물)를
-빠뜨리지 말고 전부 담는다.** 요약을 위해 정보를 버리지 않는다.
+points에 불렛 5~8개를 넣는다. 이것이 본문이다.
+독자는 원문 기사로 넘어가지 않는다. **리드문과 함께 보도의 리드에 있는 구체 정보
+(숫자·기관·일정·인물·발언)를 빠뜨리지 말고 전부 담는다.** 요약을 위해 정보를 버리지 않는다.
+재료가 적으면 5개, 많으면 8개까지 채운다.
 
-- **각 불렛 40자 이내, 온점을 찍지 않는다**
+- **각 불렛 50자 이내, 온점을 찍지 않는다**
 - 숫자를 앞에 쓴다
 - 명사구나 "~함"으로 끝낸다
 - 한 불렛에 한 가지만 담는다
@@ -117,22 +118,36 @@ function formatGauges(gauges: Gauge[]): string {
     .join("\n");
 }
 
+/** 리드문이 문단째 오는 피드가 있다. 토큰이 새지 않게 자른다. */
+function clip(text: string | null, max = 240): string {
+  if (!text) return "";
+  const trimmed = text.trim();
+  return trimmed.length <= max ? trimmed : `${trimmed.slice(0, max)}…`;
+}
+
 function formatClusters(clusters: Cluster[]): string {
   if (clusters.length === 0) return "(후보 없음)";
   return clusters
     .map((cluster, index) => {
+      // 같은 사건의 다른 기사도 제목과 리드를 준다. 불렛의 재료다.
+      // 매체 수만 주면 모델이 쓸 수 있는 사실이 리드 하나로 준다.
       const item = cluster.lead_item;
-      const alsoRun =
-        cluster.sourceCount > 1
-          ? `\n  보도 매체 수: ${cluster.sourceCount}`
-          : "";
+      const alsoRun = cluster.others
+        .slice(0, 3)
+        .map(
+          (other) =>
+            `  함께 보도(${other.source}): ${other.title}${
+              other.lead ? ` / ${clip(other.lead, 160)}` : ""
+            }`,
+        )
+        .join("\n");
       return (
         [
           `${index + 1}. ${item.title}`,
           `  매체: ${item.source}`,
-          `  리드: ${item.lead ?? ""}`,
+          `  리드: ${clip(item.lead)}`,
           `  url: ${item.url}`,
-        ].join("\n") + alsoRun
+        ].join("\n") + (alsoRun ? `\n${alsoRun}` : "")
       );
     })
     .join("\n\n");

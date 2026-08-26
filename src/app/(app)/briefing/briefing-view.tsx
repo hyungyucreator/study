@@ -435,17 +435,6 @@ function Reader({
               markFirst={item.top}
             />
 
-            {item.excerpt ? (
-              <blockquote className="mt-6 border-l-2 border-line-strong pl-4">
-                <p className="text-small leading-[1.75] text-muted">
-                  {item.excerpt}
-                </p>
-                <cite className="label mt-2 block not-italic">
-                  원문 리드 · {item.sourceName ?? "출처"}
-                </cite>
-              </blockquote>
-            ) : null}
-
             <div className="mt-5">
               {surprise ? (
                 <Row label="예상 대비">

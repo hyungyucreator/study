@@ -54,8 +54,6 @@ export type BriefingItem = {
   top: boolean;
   /** 톱을 대표하는 숫자. 톱이 아니면 null. */
   stat: TopStat | null;
-  /** 원문 리드 발췌. 저장이 허용된 유일한 본문이다 (§2-3). */
-  excerpt: string | null;
   /** 함께 보도한 다른 매체 기사. */
   related: RelatedNews[];
 };
@@ -104,8 +102,6 @@ type NewsRow = {
     top_stat?: TopStat | null;
     related?: RelatedNews[];
   } | null;
-  /** FK 임베드. 타입 추론이 배열로 잡힐 때가 있어 둘 다 받는다. */
-  raw_news: { lead: string | null } | { lead: string | null }[] | null;
 };
 
 const SECTION_KEYS = new Set<string>(SECTIONS.map((section) => section.key));
@@ -150,27 +146,8 @@ function toItem(
       .filter((card): card is TermCard => card !== undefined),
     top: meta.top === true,
     stat: meta.top === true ? (meta.top_stat ?? null) : null,
-    // 리드문은 피드에 따라 문단째 오기도 한다. 길면 자른다.
-    excerpt: trimExcerpt(
-      (Array.isArray(row.raw_news) ? row.raw_news[0] : row.raw_news)?.lead ??
-        null,
-    ),
     related: Array.isArray(meta.related) ? meta.related.slice(0, 3) : [],
   };
-}
-
-/**
- * 발췌는 원문 그대로 싣되, 통신사 관용구("(서울=연합뉴스) 오지은 기자 =")는
- * 본문이 아니라 바이라인이므로 걷어내고, 화면을 삼키지 않게 자른다.
- */
-function trimExcerpt(lead: string | null): string | null {
-  if (!lead) return null;
-  let text = lead.trim();
-  text = text.replace(/^\([^)]{2,30}\)\s*/, "");
-  text = text.replace(/^[가-힣A-Za-z·, ]{2,20}(기자|특파원)\s*=\s*/, "");
-  if (!text) return null;
-  if (text.length <= 600) return text;
-  return `${text.slice(0, 600).trimEnd()}…`;
 }
 
 /** date를 주면 그 날짜, 없으면 가장 최근 daily 브리핑. */
@@ -193,7 +170,7 @@ export async function loadBriefing(
   const { data: news } = await supabase
     .from("briefing_news")
     .select(
-      "headline, points, section, thread_id, terms, fact, surprise, source_url, position, implication_json, raw_news(lead)",
+      "headline, points, section, thread_id, terms, fact, surprise, source_url, position, implication_json",
     )
     .eq("briefing_id", briefing.id)
     .order("position");
