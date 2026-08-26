@@ -201,7 +201,7 @@ function TopStory({
     <section className="border-b-2 border-ink py-9 lg:py-11">
       <div className="lg:flex lg:items-start lg:justify-between lg:gap-16">
         <div className="min-w-0 max-w-prose">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
             <p className="label">오늘의 톱 · {sectionLabel(item.section)}</p>
             <ReadDot
               read={control.isRead(item.sourceUrl)}
@@ -435,6 +435,17 @@ function Reader({
               markFirst={item.top}
             />
 
+            {item.excerpt ? (
+              <blockquote className="mt-6 border-l-2 border-line-strong pl-4">
+                <p className="text-small leading-[1.75] text-muted">
+                  {item.excerpt}
+                </p>
+                <cite className="label mt-2 block not-italic">
+                  원문 리드 · {item.sourceName ?? "출처"}
+                </cite>
+              </blockquote>
+            ) : null}
+
             <div className="mt-5">
               {surprise ? (
                 <Row label="예상 대비">
@@ -457,6 +468,27 @@ function Reader({
                 </Row>
               ) : null}
             </div>
+
+            {item.related.length > 0 ? (
+              <div className="mt-6">
+                <p className="label">함께 보도</p>
+                <ul className="mt-2">
+                  {item.related.map((entry) => (
+                    <li key={entry.url} className="border-b border-line py-2.5 last:border-b-0">
+                      <a
+                        href={entry.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-small block hover:text-ink"
+                      >
+                        {entry.title}
+                      </a>
+                      <span className="label">{entry.source}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <Meta item={item} />
           </div>
@@ -503,7 +535,6 @@ function Reader({
           >
             이전
           </button>
-          <p className="label hidden sm:block">방향키·스와이프로 넘긴다</p>
           <button
             type="button"
             onClick={onNext}
@@ -537,7 +568,6 @@ function PipelineNotice({ problems }: { problems: Health["problems"] }) {
           </li>
         ))}
       </ul>
-      <p className="label mt-2">그날 기사는 다시 받아올 수 없다</p>
     </section>
   );
 }
@@ -720,9 +750,6 @@ export function BriefingBody({
       {view.outlook.length > 0 ? (
         <section className="mt-16 border-t-2 border-ink pt-6">
           <h2 className="font-serif text-title">오늘의 자산군</h2>
-          <p className="label mt-2">
-            브리핑 전체를 놓고 본 방향. 오늘 뉴스로 말할 수 있는 것만 싣는다
-          </p>
 
           <div className="mt-6 grid gap-x-16 gap-y-7 lg:grid-cols-2">
             {sortOutlook(view.outlook).map((item) => (

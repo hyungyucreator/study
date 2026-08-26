@@ -88,28 +88,12 @@ export default async function ThreadsPage() {
       </header>
 
       {empty ? (
-        <p className="mt-8 text-small text-muted">
-          아직 쌓인 이슈가 없다. 브리핑이 발행되면 흐름이 만들어진다.
-        </p>
+        <p className="mt-8 label">쌓인 이슈 없음</p>
       ) : (
         <>
-          {grouped.active.length === 0 ? (
-            <p className="mt-8 text-small text-muted">
-              전개가 2회 이상 이어진 이슈가 아직 없다. 브리핑이 쌓이면 올라온다.
-            </p>
-          ) : null}
-
           <Group status="active" items={grouped.active} />
-          <Group
-            status="fresh"
-            items={grouped.fresh}
-            note="한 번 다뤄짐 · 전개가 붙으면 진행 중으로"
-          />
-          <Group
-            status="watching"
-            items={grouped.watching}
-            note="7일 넘게 전개 없음"
-          />
+          <Group status="fresh" items={grouped.fresh} note="전개 1회" />
+          <Group status="watching" items={grouped.watching} />
           <Group status="closed" items={grouped.closed} />
         </>
       )}

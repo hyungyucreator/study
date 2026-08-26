@@ -142,9 +142,7 @@ export default async function ThreadPage({
           <BriefBlock label="다음 분기점" items={brief.next} />
         </section>
       ) : (
-        <p className="mt-8 text-small text-muted">
-          아직 정리된 요약이 없다. 다음 전개가 붙으면 만들어진다.
-        </p>
+        <p className="mt-8 label">아직 요약 없음</p>
       )}
 
       {timeline.length > 0 ? (
@@ -188,9 +186,6 @@ export default async function ThreadPage({
       {carried.length > 0 ? (
         <section className="mt-14">
           <h2 className="label border-b border-line-strong pb-2">관련 기사</h2>
-          <p className="label mt-2">
-            제목이 비슷해 함께 묶은 기사다. 브리핑이 다룬 것은 아니다
-          </p>
           <ul className="mt-3">
             {carried.map((item) => (
               <li key={item.raw_news!.url} className="border-b border-line py-3.5">

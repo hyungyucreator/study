@@ -255,6 +255,27 @@ export async function generateBriefing(
   const allowed = urlMap(allClusters);
   const { payload, dropped } = validate(data, allowed);
 
+  // 같은 사건을 다룬 다른 매체 기사. 카드의 "함께 보도"가 된다.
+  // 리드문만으로 부족할 때 독자가 넓혀 볼 경로다. 제목+링크만 싣는다 (§2-3).
+  const clusterOf = new Map<string, Cluster>();
+  for (const cluster of allClusters) {
+    for (const entry of [cluster.lead_item, ...cluster.others]) {
+      clusterOf.set(entry.url, cluster);
+    }
+  }
+  const relatedOf = (url: string) => {
+    const cluster = clusterOf.get(url);
+    if (!cluster) return [];
+    return [cluster.lead_item, ...cluster.others]
+      .filter((entry) => entry.url !== url)
+      .slice(0, 3)
+      .map((entry) => ({
+        title: entry.title,
+        source: entry.source,
+        url: entry.url,
+      }));
+  };
+
   const bodyMd = renderBriefing({
     date,
     gauges: temperature.gauges,
@@ -384,6 +405,7 @@ export async function generateBriefing(
             ...(payload.top.source_url === item.source_url
               ? { top: true, top_stat: payload.top.stat }
               : {}),
+            related: relatedOf(item.source_url),
           },
           source_url: item.source_url,
           position: sectionIndex * 100 + index,
