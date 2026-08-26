@@ -8,23 +8,27 @@ import {
   directionClass,
   directionLabel,
   sortOutlook,
+  type AssetOutlook,
 } from "@/lib/briefing/asset-classes";
 import type { BriefingItem, BriefingView } from "@/lib/briefing/read";
-import { sectionLabel } from "@/lib/briefing/schema";
+import { sectionLabel, SECTIONS } from "@/lib/briefing/schema";
 import type { Health } from "@/lib/ops/health";
 
 import { WithTerms } from "./term";
 
 /**
- * 브리핑 화면.
+ * 브리핑 화면. 1면과 리더의 이원 체제다.
  *
- * 축이 둘이다. 국내와 국제, 경제와 정치·사회.
- * **넓은 화면에서는 국내를 왼쪽, 국제를 오른쪽에 세운다.**
+ * **1면은 훑는 화면이다.** 상세를 싣지 않는 대신 모든 헤드라인이 한 화면에 들어온다.
+ * 오늘의 톱만 예외로 전문을 싣는다. 중요한 것은 클릭 없이 읽혀야 한다.
+ * 섹션은 2×2 그리드다. 왼쪽 열이 국내, 오른쪽 열이 국제, 윗줄이 경제,
+ * 아랫줄이 정치·사회. **두 축이 말 그대로 화면 기하가 된다.**
  *
- * 위계는 세 단이다. **오늘의 톱 1건 → 각 부의 리드 → 단신.**
- * 톱과 리드는 펼쳐진 채 둔다. 중요한 것은 클릭 없이 읽혀야 한다.
- * **단신은 헤드라인 한 줄로 접는다.** 접힌 헤드라인이 곧 목차라서
- * 브리핑 전체가 두 화면 안에 들어오고, 훑고 → 고르고 → 확인하는 흐름이 된다.
+ * **리더는 정독하는 화면이다.** 불렛·맥락·용어는 전부 여기서만 나온다.
+ * 한 장에 한 건, 옆으로 넘긴다. 넘김이 곧 읽음이다.
+ *
+ * affordance는 하나다. **헤드라인은 어디서든 누르면 그 항목의 카드가 열린다.**
+ * 1면 목록, 톱, 자산군 근거까지 전부 같은 동작이다. 죽은 클릭이 없어야 한다.
  *
  * 읽음 체크는 localStorage다 (날짜가 바뀌면 리셋). 하루짜리 상태라
  * 기기 간 동기화가 필요 없고, 필요해지면 그때 DB로 올린다.
@@ -68,6 +72,11 @@ function persistRead(date: string, urls: Set<string>) {
   }
 }
 
+type ReadControl = {
+  isRead: (url: string) => boolean;
+  toggleRead: (url: string) => void;
+};
+
 /** 읽음 체크 원. 채워지면 읽은 것이다. */
 function ReadDot({
   read,
@@ -82,7 +91,7 @@ function ReadDot({
       aria-label={read ? "읽음 해제" : "읽음으로 표시"}
       aria-pressed={read}
       onClick={onToggle}
-      className={`mt-1 h-3.5 w-3.5 shrink-0 rounded-full border transition-colors ${
+      className={`mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border transition-colors ${
         read
           ? "border-ink bg-ink"
           : "border-line-strong bg-transparent hover:border-ink"
@@ -171,17 +180,20 @@ function Meta({ item }: { item: BriefingItem }) {
   );
 }
 
-type ReadControl = {
-  isRead: (url: string) => boolean;
-  toggleRead: (url: string) => void;
-};
-
 /**
- * 오늘의 톱. 하루 한 건, 두 열 위에 전면으로 세운다.
+ * 오늘의 톱. 하루 한 건, 1면에서 유일하게 전문이 실린다.
  * 초점이 하나 생겨야 나머지의 단조로움이 리듬이 된다.
  * 숫자는 이 화면에서 색을 쓸 수 있는 유일한 자리다. 크게 쓴다.
  */
-function TopStory({ item, control }: { item: BriefingItem; control: ReadControl }) {
+function TopStory({
+  item,
+  control,
+  onOpen,
+}: {
+  item: BriefingItem;
+  control: ReadControl;
+  onOpen: () => void;
+}) {
   const stat = item.stat;
   const surprise = informativeSurprise(item.surprise);
 
@@ -189,18 +201,22 @@ function TopStory({ item, control }: { item: BriefingItem; control: ReadControl 
     <section className="border-b-2 border-ink py-9 lg:py-11">
       <div className="lg:flex lg:items-start lg:justify-between lg:gap-16">
         <div className="min-w-0 max-w-prose">
-          <p className="label">오늘의 톱 · {sectionLabel(item.section)}</p>
-          <div className="mt-3 flex items-start gap-4">
-            <h2 className="font-serif text-title lg:text-display min-w-0 leading-[1.25] break-keep text-ink">
-              {item.headline ?? item.points[0]}
-            </h2>
-            <span className="pt-2 lg:pt-4">
-              <ReadDot
-                read={control.isRead(item.sourceUrl)}
-                onToggle={() => control.toggleRead(item.sourceUrl)}
-              />
-            </span>
+          <div className="flex items-center justify-between gap-4">
+            <p className="label">오늘의 톱 · {sectionLabel(item.section)}</p>
+            <ReadDot
+              read={control.isRead(item.sourceUrl)}
+              onToggle={() => control.toggleRead(item.sourceUrl)}
+            />
           </div>
+          <h2 className="mt-3">
+            <button
+              type="button"
+              onClick={onOpen}
+              className="font-serif text-title lg:text-display text-left leading-[1.25] break-keep text-ink decoration-line-strong underline-offset-8 hover:underline"
+            >
+              {item.headline ?? item.points[0]}
+            </button>
+          </h2>
 
           <Points points={item.points} cards={item.cards} markFirst />
 
@@ -241,134 +257,19 @@ function TopStory({ item, control }: { item: BriefingItem; control: ReadControl 
 }
 
 /**
- * 각 부의 리드. 항상 펼쳐져 있고 전체 필드를 싣는다.
- * 읽으면 헤드라인이 가라앉는다. 지운 것이 아니라 지나온 것이다.
+ * 1면의 분면 하나. 헤드라인 목록만 싣는다. 상세는 리더의 일이다.
+ * 첫 기사만 크게 둔다. 편집이란 무엇을 크게 둘지 정하는 일이다.
  */
-function LeadArticle({
-  item,
-  control,
-}: {
-  item: BriefingItem;
-  control: ReadControl;
-}) {
-  const surprise = informativeSurprise(item.surprise);
-  const read = control.isRead(item.sourceUrl);
-
-  return (
-    <article className="border-b border-line py-7 first:pt-5">
-      <div className="flex items-start gap-3">
-        <h4
-          className={`font-serif text-lead min-w-0 flex-1 break-keep ${
-            read ? "text-muted" : "text-ink"
-          }`}
-        >
-          {item.headline ?? item.points[0]}
-        </h4>
-        <ReadDot
-          read={read}
-          onToggle={() => control.toggleRead(item.sourceUrl)}
-        />
-      </div>
-
-      <Points points={item.points} cards={item.cards} />
-
-      <div className="mt-4">
-        {surprise ? (
-          <Row label="예상 대비">
-            <WithTerms text={surprise} cards={item.cards} />
-          </Row>
-        ) : null}
-        {item.context ? (
-          <Row label="맥락">
-            <WithTerms text={item.context} cards={item.cards} />
-          </Row>
-        ) : null}
-        {item.outlook ? (
-          <Row label="지켜볼 것">
-            <WithTerms text={item.outlook} cards={item.cards} />
-          </Row>
-        ) : null}
-        {item.investmentNote ? (
-          <Row label="투자 함의">
-            <WithTerms text={item.investmentNote} cards={item.cards} />
-          </Row>
-        ) : null}
-      </div>
-
-      <Meta item={item} />
-    </article>
-  );
-}
-
-/**
- * 단신. 접혀 있으면 헤드라인이 곧 목차다.
- * 펼치는 행위가 곧 읽음이다. 따로 체크할 필요가 없다.
- */
-function BriefArticle({
-  item,
-  open,
-  onToggleOpen,
-  control,
-}: {
-  item: BriefingItem;
-  open: boolean;
-  onToggleOpen: () => void;
-  control: ReadControl;
-}) {
-  const surprise = informativeSurprise(item.surprise);
-  const read = control.isRead(item.sourceUrl);
-
-  return (
-    <article className="border-b border-line last:border-b-0">
-      <div className="flex items-start gap-3 py-3.5">
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={onToggleOpen}
-          className="min-w-0 flex-1 text-left"
-        >
-          <span
-            className={`font-serif text-body font-semibold break-keep ${
-              read ? "text-muted" : "text-ink"
-            }`}
-          >
-            {item.headline ?? item.points[0]}
-          </span>
-        </button>
-        <ReadDot
-          read={read}
-          onToggle={() => control.toggleRead(item.sourceUrl)}
-        />
-      </div>
-
-      {open ? (
-        <div className="pb-5">
-          <Points points={item.points} cards={item.cards} />
-          {surprise ? (
-            <p className="mt-3 text-small text-muted">
-              <span className="label mr-2">예상 대비</span>
-              <WithTerms text={surprise} cards={item.cards} />
-            </p>
-          ) : null}
-          <Meta item={item} />
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-function Section({
+function SectionPanel({
   label,
   items,
-  openSet,
-  onToggleOpen,
   control,
+  onOpen,
 }: {
   label: string;
   items: BriefingItem[];
-  openSet: Set<string>;
-  onToggleOpen: (url: string) => void;
   control: ReadControl;
+  onOpen: (url: string) => void;
 }) {
   if (items.length === 0) return null;
   const readCount = items.filter((item) =>
@@ -376,27 +277,44 @@ function Section({
   ).length;
 
   return (
-    <section className="mt-12 first:mt-0">
-      {/* 2차 축. 1차 축(국내/국제)보다는 작되 라벨보다는 존재감이 있어야 한다. */}
-      <div className="flex items-baseline justify-between border-b border-line-strong pb-2">
-        <h3 className="text-subhead text-muted">{label}</h3>
+    <section className="bg-surface border border-line px-6 py-5 sm:px-7">
+      <div className="flex items-baseline justify-between border-b border-line-strong pb-3">
+        <h3 className="font-serif text-heading text-ink">{label}</h3>
         <span className="tabular label">
           {readCount}/{items.length}
         </span>
       </div>
-      {items.map((item, index) =>
-        index === 0 ? (
-          <LeadArticle key={item.sourceUrl} item={item} control={control} />
-        ) : (
-          <BriefArticle
-            key={item.sourceUrl}
-            item={item}
-            open={openSet.has(item.sourceUrl)}
-            onToggleOpen={() => onToggleOpen(item.sourceUrl)}
-            control={control}
-          />
-        ),
-      )}
+      <ul>
+        {items.map((item, index) => {
+          const read = control.isRead(item.sourceUrl);
+          return (
+            <li
+              key={item.sourceUrl}
+              className="flex items-start gap-3 border-b border-line last:border-b-0"
+            >
+              <button
+                type="button"
+                onClick={() => onOpen(item.sourceUrl)}
+                className="min-w-0 flex-1 py-3.5 text-left"
+              >
+                <span
+                  className={`font-serif break-keep decoration-line-strong underline-offset-4 hover:underline ${
+                    index === 0 ? "text-body font-semibold" : "text-small"
+                  } ${read ? "text-muted" : "text-ink"}`}
+                >
+                  {item.headline ?? item.points[0]}
+                </span>
+              </button>
+              <span className="py-2.5">
+                <ReadDot
+                  read={read}
+                  onToggle={() => control.toggleRead(item.sourceUrl)}
+                />
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }
@@ -404,26 +322,29 @@ function Section({
 /**
  * 차례로 읽기. 한 장에 한 건, 옆으로 넘긴다.
  *
- * 지면은 훑는 화면이고 이것은 정독하는 화면이다. 매일 의식으로 읽을 때는
- * 순서대로 착착 넘기는 쪽이 스크롤보다 빠르고, 넘김이 곧 읽음이라
- * 진행이 저절로 쌓인다. 스와이프(터치), 방향키, 버튼 전부 받는다.
+ * 1면은 훑는 화면이고 이것이 정독하는 화면이다. 순서대로 착착 넘기는 쪽이
+ * 스크롤보다 빠르고, 넘김이 곧 읽음이라 진행이 저절로 쌓인다.
+ * 스와이프(터치), 방향키, 버튼 전부 받는다.
+ * index가 items.length면 완료 카드다. 의식에는 마침표가 있어야 한다.
  */
 function Reader({
   items,
   index,
+  outlook,
   onPrev,
   onNext,
   onClose,
 }: {
   items: BriefingItem[];
   index: number;
+  outlook: AssetOutlook[];
   onPrev: () => void;
   onNext: () => void;
   onClose: () => void;
 }) {
-  const item = items[index];
-  const last = index === items.length - 1;
-  const surprise = informativeSurprise(item.surprise);
+  const done = index >= items.length;
+  const item = done ? null : items[index];
+  const surprise = item ? informativeSurprise(item.surprise) : null;
   const touchX = useRef<number | null>(null);
 
   useEffect(() => {
@@ -436,7 +357,7 @@ function Reader({
     return () => window.removeEventListener("keydown", onKey);
   }, [onNext, onPrev, onClose]);
 
-  // 카드 모드가 열려 있는 동안 뒤 지면이 스크롤되면 안 된다.
+  // 카드 모드가 열려 있는 동안 뒤 1면이 스크롤되면 안 된다.
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -466,9 +387,11 @@ function Reader({
       <header className="border-b border-line">
         <div className="mx-auto flex w-full max-w-prose items-baseline justify-between gap-4 px-5 py-4 sm:px-8">
           <p className="tabular label">
-            {index + 1} / {items.length}
+            {done ? "끝" : `${index + 1} / ${items.length}`}
           </p>
-          <p className="label">{sectionLabel(item.section)}</p>
+          <p className="label">
+            {item ? sectionLabel(item.section) : "오늘의 자산군"}
+          </p>
           <button
             type="button"
             onClick={onClose}
@@ -480,56 +403,94 @@ function Reader({
         <div className="h-0.5 w-full bg-line">
           <div
             className="h-full bg-ink transition-all duration-200"
-            style={{ width: `${((index + 1) / items.length) * 100}%` }}
+            style={{
+              width: `${(Math.min(index + 1, items.length) / items.length) * 100}%`,
+            }}
           />
         </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-prose px-5 py-10 sm:px-8">
-          {item.top ? <p className="label">오늘의 톱</p> : null}
-          <h2 className="font-serif text-title lg:text-display mt-2 leading-[1.25] break-keep text-ink">
-            {item.headline ?? item.points[0]}
-          </h2>
+        {item ? (
+          <div className="mx-auto w-full max-w-prose px-5 py-10 sm:px-8">
+            {item.top ? <p className="label">오늘의 톱</p> : null}
+            <h2 className="font-serif text-title lg:text-display mt-2 leading-[1.25] break-keep text-ink">
+              {item.headline ?? item.points[0]}
+            </h2>
 
-          {item.stat ? (
-            <p className="mt-5 flex items-baseline gap-3">
-              <span
-                className={`tabular text-display ${statClass(item.stat.direction)}`}
-              >
-                {item.stat.value}
-              </span>
-              <span className="label">{item.stat.label}</span>
-            </p>
-          ) : null}
+            {item.stat ? (
+              <p className="mt-5 flex items-baseline gap-3">
+                <span
+                  className={`tabular text-display ${statClass(item.stat.direction)}`}
+                >
+                  {item.stat.value}
+                </span>
+                <span className="label">{item.stat.label}</span>
+              </p>
+            ) : null}
 
-          <Points points={item.points} cards={item.cards} markFirst={item.top} />
+            <Points
+              points={item.points}
+              cards={item.cards}
+              markFirst={item.top}
+            />
 
-          <div className="mt-5">
-            {surprise ? (
-              <Row label="예상 대비">
-                <WithTerms text={surprise} cards={item.cards} />
-              </Row>
-            ) : null}
-            {item.context ? (
-              <Row label="맥락">
-                <WithTerms text={item.context} cards={item.cards} />
-              </Row>
-            ) : null}
-            {item.outlook ? (
-              <Row label="지켜볼 것">
-                <WithTerms text={item.outlook} cards={item.cards} />
-              </Row>
-            ) : null}
-            {item.investmentNote ? (
-              <Row label="투자 함의">
-                <WithTerms text={item.investmentNote} cards={item.cards} />
-              </Row>
+            <div className="mt-5">
+              {surprise ? (
+                <Row label="예상 대비">
+                  <WithTerms text={surprise} cards={item.cards} />
+                </Row>
+              ) : null}
+              {item.context ? (
+                <Row label="맥락">
+                  <WithTerms text={item.context} cards={item.cards} />
+                </Row>
+              ) : null}
+              {item.outlook ? (
+                <Row label="지켜볼 것">
+                  <WithTerms text={item.outlook} cards={item.cards} />
+                </Row>
+              ) : null}
+              {item.investmentNote ? (
+                <Row label="투자 함의">
+                  <WithTerms text={item.investmentNote} cards={item.cards} />
+                </Row>
+              ) : null}
+            </div>
+
+            <Meta item={item} />
+          </div>
+        ) : (
+          <div className="mx-auto w-full max-w-prose px-5 py-10 sm:px-8">
+            <p className="label">오늘 브리핑 끝</p>
+            <h2 className="font-serif text-title lg:text-display mt-2 break-keep text-ink">
+              {items.length}건 다 읽었다
+            </h2>
+
+            {outlook.length > 0 ? (
+              <div className="mt-8 border-t border-line-strong pt-6">
+                <h3 className="label">오늘의 자산군</h3>
+                <ul className="mt-4 space-y-4">
+                  {sortOutlook(outlook).map((entry) => (
+                    <li key={entry.asset_class}>
+                      <div className="flex items-baseline gap-2.5">
+                        <span className="font-serif text-heading text-ink">
+                          {assetLabel(entry.asset_class)}
+                        </span>
+                        <span
+                          className={`text-subhead ${directionClass(entry.direction)}`}
+                        >
+                          {directionLabel(entry.asset_class, entry.direction)}
+                        </span>
+                      </div>
+                      <p className="text-small mt-1 text-muted">{entry.note}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
           </div>
-
-          <Meta item={item} />
-        </div>
+        )}
       </div>
 
       <footer className="border-t border-line">
@@ -548,7 +509,7 @@ function Reader({
             onClick={onNext}
             className="text-subhead text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
           >
-            {last ? "끝내기" : "다음"}
+            {done ? "닫기" : index === items.length - 1 ? "마무리" : "다음"}
           </button>
         </div>
       </footer>
@@ -601,8 +562,6 @@ export function BriefingBody({
     setRead(loadRead(view.date));
   }, [view.date]);
 
-  const [openSet, setOpenSet] = useState<Set<string>>(new Set());
-
   const markRead = (url: string, value?: boolean) => {
     setRead((prev) => {
       const next = new Set(prev);
@@ -614,29 +573,70 @@ export function BriefingBody({
     });
   };
 
-  const toggleOpen = (url: string) => {
-    const opening = !openSet.has(url);
-    setOpenSet((prev) => {
-      const next = new Set(prev);
-      if (opening) next.add(url);
-      else next.delete(url);
-      return next;
-    });
-    // 펼쳐 봤으면 읽은 것이다.
-    if (opening) markRead(url, true);
-  };
-
   const control: ReadControl = {
     isRead: (url) => read.has(url),
     toggleRead: (url) => markRead(url),
   };
 
-  // 톱은 전면에 세우고 원래 섹션에서는 뺀다. 같은 기사가 두 번 나오면 안 된다.
+  // 톱은 전면에 세우고 분면 목록에서는 뺀다. 같은 기사가 두 번 나오면 안 된다.
   const strip = (items: BriefingItem[]) =>
     items.filter((item) => item !== view.top);
 
   const find = (key: string) =>
     strip(view.sections.find((section) => section.key === key)?.items ?? []);
+
+  // 2×2 분면. SECTIONS 순서(국내경제·국제경제·국내정치·국제정치)가
+  // 그리드에서 정확히 왼쪽 열 국내, 오른쪽 열 국제, 윗줄 경제, 아랫줄 정치가 된다.
+  const panels = SECTIONS.map((section) => ({
+    key: section.key,
+    label: section.label,
+    items: find(section.key),
+  })).filter((panel) => panel.items.length > 0);
+
+  // 읽기 순서 = 1면 순서. 톱 → 국내 경제 → 국제 경제 → 국내 정치 → 국제 정치.
+  const readerItems = useMemo(() => {
+    const list: BriefingItem[] = view.top ? [view.top] : [];
+    for (const panel of panels) list.push(...panel.items);
+    return list;
+    // panels는 view에서 파생된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
+
+  const [readerIndex, setReaderIndex] = useState<number | null>(null);
+
+  // 카드를 보이는 것이 곧 읽는 것이다. 이동 이벤트에서 함께 처리한다.
+  const readerGo = (index: number) => {
+    setReaderIndex(index);
+    if (index < readerItems.length)
+      markRead(readerItems[index].sourceUrl, true);
+  };
+  const openReader = () => {
+    const firstUnread = readerItems.findIndex(
+      (item) => !read.has(item.sourceUrl),
+    );
+    readerGo(firstUnread === -1 ? 0 : firstUnread);
+  };
+  /** 어느 헤드라인이든 누르면 그 항목의 카드가 열린다. */
+  const openAt = (url: string) => {
+    const index = readerItems.findIndex((item) => item.sourceUrl === url);
+    if (index >= 0) readerGo(index);
+  };
+  const readerPrev = () => {
+    if (readerIndex !== null && readerIndex > 0) readerGo(readerIndex - 1);
+  };
+  const readerNext = () => {
+    if (readerIndex === null) return;
+    // 마지막 항목 다음은 완료 카드, 완료 카드 다음은 닫기.
+    if (readerIndex >= readerItems.length) setReaderIndex(null);
+    else if (readerIndex === readerItems.length - 1)
+      setReaderIndex(readerItems.length);
+    else readerGo(readerIndex + 1);
+  };
+
+  const readCount = readerItems.filter((item) =>
+    read.has(item.sourceUrl),
+  ).length;
+  const total = readerItems.length;
 
   // 자산군 근거를 그 기사의 헤드라인으로 되돌린다. url만 보여주면 알 수 없다.
   const headlines = new Map(
@@ -646,91 +646,44 @@ export function BriefingBody({
   );
   const evidenceOf = (url: string) => headlines.get(url) ?? null;
 
-  const columns = [
-    {
-      key: "kr",
-      label: "국내",
-      groups: [
-        { label: "경제", items: find("kr_economy") },
-        { label: "정치·사회", items: find("kr_politics") },
-      ],
-    },
-    {
-      key: "global",
-      label: "국제",
-      groups: [
-        { label: "경제", items: find("global_economy") },
-        { label: "정치·사회", items: find("global_politics") },
-      ],
-    },
-  ].filter((column) => column.groups.some((group) => group.items.length > 0));
-
-  // 진행 표시와 모두 펼치기의 대상 목록.
-  const { allUrls, briefUrls } = useMemo(() => {
-    const all: string[] = [];
-    const briefs: string[] = [];
-    if (view.top) all.push(view.top.sourceUrl);
-    for (const column of columns) {
-      for (const group of column.groups) {
-        group.items.forEach((item, index) => {
-          all.push(item.sourceUrl);
-          if (index > 0) briefs.push(item.sourceUrl);
-        });
-      }
-    }
-    return { allUrls: all, briefUrls: briefs };
-    // columns는 view에서 파생된다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
-
-  const readCount = allUrls.filter((url) => read.has(url)).length;
-  const anyOpen = openSet.size > 0;
-
-  // 차례로 읽기. 읽기 순서는 지면 순서와 같다: 톱 → 국내 → 국제.
-  const readerItems = useMemo(() => {
-    const list: BriefingItem[] = view.top ? [view.top] : [];
-    for (const column of columns) {
-      for (const group of column.groups) list.push(...group.items);
-    }
-    return list;
-    // columns는 view에서 파생된다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
-
-  const [readerIndex, setReaderIndex] = useState<number | null>(null);
-
-  // 카드를 보이는 것이 곧 읽는 것이다. 이동 이벤트에서 함께 처리한다.
-  const readerGo = (index: number) => {
-    setReaderIndex(index);
-    markRead(readerItems[index].sourceUrl, true);
-  };
-  const openReader = () => {
-    const firstUnread = readerItems.findIndex(
-      (item) => !read.has(item.sourceUrl),
-    );
-    readerGo(firstUnread === -1 ? 0 : firstUnread);
-  };
-  const readerPrev = () => {
-    if (readerIndex !== null && readerIndex > 0) readerGo(readerIndex - 1);
-  };
-  const readerNext = () => {
-    if (readerIndex === null) return;
-    if (readerIndex >= readerItems.length - 1) setReaderIndex(null);
-    else readerGo(readerIndex + 1);
-  };
-
   return (
     <main className="mx-auto w-full max-w-page px-5 pt-12 pb-24 sm:px-8">
       <header className="border-b-2 border-ink pb-6">
-        <p className="label">데일리 브리핑</p>
-        <h1 className="font-serif text-display mt-2">
-          {year}년 {Number(month)}월 {Number(day)}일
-        </h1>
+        <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+          <div>
+            <p className="label">데일리 브리핑</p>
+            <h1 className="font-serif text-display mt-2">
+              {year}년 {Number(month)}월 {Number(day)}일
+            </h1>
+          </div>
+          <div className="flex items-baseline gap-5 pb-1">
+            <p className="tabular label">
+              읽음 {readCount}/{total}
+            </p>
+            <button
+              type="button"
+              onClick={openReader}
+              className="bg-ink text-bg text-subhead px-5 py-2.5 hover:opacity-85"
+            >
+              {readCount === 0
+                ? "오늘 브리핑 읽기"
+                : readCount < total
+                  ? "이어서 읽기"
+                  : "다시 읽기"}
+            </button>
+          </div>
+        </div>
       </header>
 
       <PipelineNotice problems={health?.problems ?? []} />
 
-      {view.top ? <TopStory item={view.top} control={control} /> : null}
+      {view.top ? (
+        <TopStory
+          item={view.top}
+          control={control}
+          onOpen={() => openAt(view.top!.sourceUrl)}
+        />
+      ) : null}
 
       {view.threads.length > 0 ? (
         <section className="mt-8 border-b border-line pb-6">
@@ -751,58 +704,21 @@ export function BriefingBody({
         </section>
       ) : null}
 
-      <div className="mt-10 flex items-baseline justify-between">
-        <div className="flex items-baseline gap-6">
-          <button
-            type="button"
-            onClick={openReader}
-            className="text-subhead text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
-          >
-            차례로 읽기
-          </button>
-          <p className="tabular label">
-            읽음 {readCount}/{allUrls.length}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() =>
-            setOpenSet(anyOpen ? new Set() : new Set(briefUrls))
-          }
-          className="label underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
-        >
-          {anyOpen ? "단신 모두 접기" : "단신 모두 펼치기"}
-        </button>
-      </div>
-
-      {/* 두 열이 곧 축이다. 좁은 화면에서는 국내 다음 국제로 이어진다. */}
-      <div className="mt-4 grid gap-x-16 gap-y-16 lg:grid-cols-2">
-        {columns.map((column) => (
-          <div
-            key={column.key}
-            className="min-w-0 lg:last:border-l lg:last:border-line lg:last:pl-16"
-          >
-            <h2 className="font-serif text-title border-b-2 border-ink pb-2.5">
-              {column.label}
-            </h2>
-            <div className="mt-6">
-              {column.groups.map((group) => (
-                <Section
-                  key={group.label}
-                  label={group.label}
-                  items={group.items}
-                  openSet={openSet}
-                  onToggleOpen={toggleOpen}
-                  control={control}
-                />
-              ))}
-            </div>
-          </div>
+      {/* 2×2 분면. 두 축(국내|국제, 경제|정치·사회)이 화면 기하다. */}
+      <div className="mt-10 grid gap-5 lg:grid-cols-2 lg:gap-6">
+        {panels.map((panel) => (
+          <SectionPanel
+            key={panel.key}
+            label={panel.label}
+            items={panel.items}
+            control={control}
+            onOpen={openAt}
+          />
         ))}
       </div>
 
       {view.outlook.length > 0 ? (
-        <section className="mt-20 border-t-2 border-ink pt-6">
+        <section className="mt-16 border-t-2 border-ink pt-6">
           <h2 className="font-serif text-title">오늘의 자산군</h2>
           <p className="label mt-2">
             브리핑 전체를 놓고 본 방향. 오늘 뉴스로 말할 수 있는 것만 싣는다
@@ -831,8 +747,14 @@ export function BriefingBody({
                       const source = evidenceOf(url);
                       if (!source) return null;
                       return (
-                        <li key={url} className="label">
-                          {source}
+                        <li key={url}>
+                          <button
+                            type="button"
+                            onClick={() => openAt(url)}
+                            className="label text-left underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
+                          >
+                            {source}
+                          </button>
                         </li>
                       );
                     })}
@@ -844,10 +766,11 @@ export function BriefingBody({
         </section>
       ) : null}
 
-      {readerIndex !== null && readerItems[readerIndex] ? (
+      {readerIndex !== null ? (
         <Reader
           items={readerItems}
           index={readerIndex}
+          outlook={view.outlook}
           onPrev={readerPrev}
           onNext={readerNext}
           onClose={() => setReaderIndex(null)}
