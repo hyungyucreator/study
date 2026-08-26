@@ -1,4 +1,5 @@
 import { listBriefingDates, loadBriefing } from "@/lib/briefing/read";
+import { pipelineHealth } from "@/lib/ops/health";
 import { createClient } from "@/lib/supabase/server";
 
 import { BriefingBody } from "./briefing-view";
@@ -7,9 +8,10 @@ export const metadata = { title: "브리핑 · 투자 데스크" };
 
 export default async function BriefingPage() {
   const supabase = await createClient();
-  const [view, archive] = await Promise.all([
+  const [view, archive, health] = await Promise.all([
     loadBriefing(supabase),
     listBriefingDates(supabase),
+    pipelineHealth(supabase),
   ]);
 
   if (!view) {
@@ -21,7 +23,7 @@ export default async function BriefingPage() {
     );
   }
 
-  return <BriefingBody view={view} archive={archive} />;
+  return <BriefingBody view={view} archive={archive} health={health} />;
 }
 
 export const dynamic = "force-dynamic";

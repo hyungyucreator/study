@@ -7,6 +7,7 @@ import {
   sortOutlook,
 } from "@/lib/briefing/asset-classes";
 import type { BriefingItem, BriefingView } from "@/lib/briefing/read";
+import type { Health } from "@/lib/ops/health";
 
 import { WithTerms } from "./term";
 
@@ -150,12 +151,39 @@ function Section({
   );
 }
 
+/**
+ * 파이프라인이 거른 날을 알린다.
+ *
+ * 자동화의 실패는 조용하다. 브리핑이 하루 비어도 사용자는 "오늘은 뉴스가 없었나"로
+ * 읽는다. 놓친 날은 복구되지 않으므로 화면이 먼저 말해야 한다.
+ * 색을 쓰지 않는다. 적/청은 방향이지 경고가 아니다 (DESIGN §2).
+ */
+function PipelineNotice({ problems }: { problems: Health["problems"] }) {
+  if (problems.length === 0) return null;
+
+  return (
+    <section className="mt-8 border border-line-strong bg-surface px-5 py-4">
+      <h2 className="label">파이프라인</h2>
+      <ul className="mt-2 space-y-1">
+        {problems.map((problem) => (
+          <li key={problem.date} className="tabular text-small">
+            {problem.date} · {problem.note}
+          </li>
+        ))}
+      </ul>
+      <p className="label mt-2">그날 기사는 다시 받아올 수 없다</p>
+    </section>
+  );
+}
+
 export function BriefingBody({
   view,
   archive,
+  health,
 }: {
   view: BriefingView;
   archive: string[];
+  health?: Health;
 }) {
   const past = archive.filter((date) => date !== view.date);
   const [year, month, day] = view.date.split("-");
@@ -198,6 +226,8 @@ export function BriefingBody({
           {year}년 {Number(month)}월 {Number(day)}일
         </h1>
       </header>
+
+      <PipelineNotice problems={health?.problems ?? []} />
 
       {view.threads.length > 0 ? (
         <section className="mt-8 border-b border-line pb-6">
