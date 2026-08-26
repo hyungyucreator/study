@@ -217,17 +217,36 @@ function BodyParagraphs({ item }: { item: BriefingItem }) {
 function InsightsBox({
   item,
   markFirst = false,
+  stat = null,
 }: {
   item: BriefingItem;
   /** 첫 인사이트에 형광펜. 오늘의 톱에서만. 화면에 형광펜은 한 곳뿐이다. */
   markFirst?: boolean;
+  /** 대표 숫자. 홀로 세우면 기념비가 되므로 해석 박스의 머리로 접어 넣는다. */
+  stat?: BriefingItem["stat"];
 }) {
-  if (item.points.length === 0) return null;
+  if (item.points.length === 0 && !stat) return null;
 
   return (
     <div className="bg-surface border-line mt-6 border px-5 pt-4 pb-5">
-      <p className="label">인사이트</p>
-      <Points points={item.points} cards={item.cards} markFirst={markFirst} />
+      {stat ? (
+        <p className="tabular border-line mb-3.5 flex items-baseline gap-2.5 border-b pb-3.5">
+          <span className={`text-heading ${statClass(stat.direction)}`}>
+            {stat.value}
+          </span>
+          <span className="label">{stat.label}</span>
+        </p>
+      ) : null}
+      {item.points.length > 0 ? (
+        <>
+          <p className="label">인사이트</p>
+          <Points
+            points={item.points}
+            cards={item.cards}
+            markFirst={markFirst}
+          />
+        </>
+      ) : null}
     </div>
   );
 }
@@ -250,7 +269,11 @@ function ItemContent({
     return (
       <>
         <BodyParagraphs item={item} />
-        <InsightsBox item={item} markFirst={markFirstInsight} />
+        <InsightsBox
+          item={item}
+          markFirst={markFirstInsight}
+          stat={item.stat}
+        />
       </>
     );
   }
@@ -347,31 +370,11 @@ function TopStory({
         <div className="min-w-0 max-w-prose lg:flex-1">
           {kicker}
           {headline}
-          {stat ? (
-            <p className="mt-5 flex items-baseline gap-3 lg:hidden">
-              <span
-                className={`tabular text-title ${statClass(stat.direction)}`}
-              >
-                {stat.value}
-              </span>
-              <span className="label">{stat.label}</span>
-            </p>
-          ) : null}
           <BodyParagraphs item={item} />
         </div>
 
         <aside className="mt-2 lg:mt-1 lg:w-80 lg:shrink-0 lg:border-l lg:border-line lg:pl-10">
-          {stat ? (
-            <div className="hidden lg:block">
-              <p className="label">{stat.label}</p>
-              <p
-                className={`tabular text-display mt-1.5 ${statClass(stat.direction)}`}
-              >
-                {stat.value}
-              </p>
-            </div>
-          ) : null}
-          <InsightsBox item={item} markFirst />
+          <InsightsBox item={item} markFirst stat={stat} />
         </aside>
       </div>
 
@@ -542,17 +545,6 @@ function Reader({
             <h2 className="font-serif text-title lg:text-display mt-2 break-keep text-ink">
               {item.headline ?? item.points[0]}
             </h2>
-
-            {item.stat ? (
-              <p className="mt-5 flex items-baseline gap-3">
-                <span
-                  className={`tabular text-display ${statClass(item.stat.direction)}`}
-                >
-                  {item.stat.value}
-                </span>
-                <span className="label">{item.stat.label}</span>
-              </p>
-            ) : null}
 
             <ItemContent item={item} markFirstInsight={item.top} />
 
