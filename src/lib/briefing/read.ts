@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Gauge } from "@/lib/macro";
 
 import type { AssetOutlook } from "./asset-classes";
-import { SECTIONS, type SectionKey, type TopStat } from "./schema";
+import { SECTIONS, type SectionKey } from "./schema";
 
 /**
  * 화면용 브리핑 조회.
@@ -54,8 +54,6 @@ export type BriefingItem = {
   cards: TermCard[];
   /** 오늘의 톱 여부. 하루 한 건. */
   top: boolean;
-  /** 톱을 대표하는 숫자. 톱이 아니면 null. */
-  stat: TopStat | null;
   /** 함께 보도한 다른 매체 기사. */
   related: RelatedNews[];
 };
@@ -101,7 +99,6 @@ type NewsRow = {
     outlook?: string;
     investment_note?: string | null;
     top?: boolean;
-    top_stat?: TopStat | null;
     related?: RelatedNews[];
     body?: string[];
   } | null;
@@ -149,7 +146,6 @@ function toItem(
       .map((term) => cards.get(term))
       .filter((card): card is TermCard => card !== undefined),
     top: meta.top === true,
-    stat: meta.top === true ? (meta.top_stat ?? null) : null,
     related: Array.isArray(meta.related) ? meta.related.slice(0, 3) : [],
   };
 }

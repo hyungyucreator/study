@@ -29,17 +29,9 @@ export function sectionLabel(key: string) {
   return SECTIONS.find((section) => section.key === key)?.label ?? key;
 }
 
-/** 오늘의 톱을 대표하는 숫자 하나. */
-export type TopStat = {
-  value: string;
-  label: string;
-  direction: "up" | "down" | "flat";
-};
-
 /** 오늘의 톱. 하루 전체에서 단 한 건. 화면 위계의 정점이다. */
 export type TopPick = {
   source_url: string;
-  stat: TopStat | null;
 };
 
 /** 모델이 돌려주는 이슈 배정. 기존이면 id, 새 흐름이면 new_title. */
@@ -194,29 +186,8 @@ const top = {
     "오늘의 톱. 네 섹션에서 고른 항목 중 **가장 파장이 큰 단 한 건**. 그 항목의 source_url을 그대로 쓴다.",
   properties: {
     source_url,
-    stat: {
-      type: ["object", "null"],
-      description:
-        "오늘을 대표하는 숫자 하나. **그 항목의 불렛에 이미 쓴 숫자만 쓴다.** 마땅한 숫자가 없으면 null. 지어내지 말 것.",
-      properties: {
-        value: {
-          type: "string",
-          description: "숫자와 단위만. 예: '4.74%', '1,383원', '-3.1%'",
-        },
-        label: {
-          type: "string",
-          description: "무슨 숫자인지. 10자 이내 명사구. 예: '미 10년물', '코스피'",
-        },
-        direction: {
-          type: "string",
-          enum: ["up", "down", "flat"],
-          description: "상승 up, 하락 down, 수준 자체가 뉴스면 flat",
-        },
-      },
-      required: ["value", "label", "direction"],
-    },
   },
-  required: ["source_url", "stat"],
+  required: ["source_url"],
 };
 
 function section(description: string, items: object) {

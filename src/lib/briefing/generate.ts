@@ -60,7 +60,7 @@ function emptyPayload(): BriefingPayload {
     kr_politics: [],
     global_politics: [],
     asset_outlook: [],
-    top: { source_url: "", stat: null },
+    top: { source_url: "" },
   };
 }
 
@@ -146,7 +146,6 @@ function validate(
     .filter((item) => item.evidence.length > 0);
 
   // 오늘의 톱은 실제 실린 기사여야 한다. 아니면 첫 경제 항목으로 대체한다.
-  // 대체됐으면 stat도 버린다. 다른 기사의 숫자를 달고 나가면 안 된다.
   const firstItem =
     result.global_economy[0] ??
     result.kr_economy[0] ??
@@ -154,11 +153,12 @@ function validate(
     result.global_politics[0] ??
     null;
   const pickedUrl = payload.top?.source_url;
-  if (pickedUrl && seen.has(pickedUrl)) {
-    result.top = { source_url: pickedUrl, stat: payload.top?.stat ?? null };
-  } else {
-    result.top = { source_url: firstItem?.source_url ?? "", stat: null };
-  }
+  result.top = {
+    source_url:
+      pickedUrl && seen.has(pickedUrl)
+        ? pickedUrl
+        : (firstItem?.source_url ?? ""),
+  };
 
   return { payload: result, dropped };
 }
@@ -399,9 +399,7 @@ export async function generateBriefing(
         // 내용은 여기. 옛 행(body 없음)은 화면이 points 불렛으로 폴백한다.
         body: item.body,
         // 오늘의 톱 표시. 별도 컬럼 대신 여기 둔다. 하루 한 건뿐이다.
-        ...(payload.top.source_url === item.source_url
-          ? { top: true, top_stat: payload.top.stat }
-          : {}),
+        ...(payload.top.source_url === item.source_url ? { top: true } : {}),
         related: relatedOf(item.source_url),
       },
       source_url: item.source_url,

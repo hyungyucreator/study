@@ -36,13 +36,6 @@ import { WithTerms } from "./term";
  * 색은 방향에만 쓴다. 적이 상방, 청이 하방이다 (DESIGN.md §2).
  */
 
-/** 톱 숫자의 방향색. 보합·수준 자체가 뉴스면 무채색. */
-function statClass(direction: "up" | "down" | "flat") {
-  if (direction === "up") return "text-gain";
-  if (direction === "down") return "text-loss";
-  return "text-ink";
-}
-
 /** "시장 예상치 확인 불가"는 정보가 아니다. 저장은 하되 싣지 않는다. */
 function informativeSurprise(surprise: string | null): string | null {
   if (!surprise || surprise.includes("확인 불가")) return null;
@@ -217,36 +210,17 @@ function BodyParagraphs({ item }: { item: BriefingItem }) {
 function InsightsBox({
   item,
   markFirst = false,
-  stat = null,
 }: {
   item: BriefingItem;
   /** 첫 인사이트에 형광펜. 오늘의 톱에서만. 화면에 형광펜은 한 곳뿐이다. */
   markFirst?: boolean;
-  /** 대표 숫자. 홀로 세우면 기념비가 되므로 해석 박스의 머리로 접어 넣는다. */
-  stat?: BriefingItem["stat"];
 }) {
-  if (item.points.length === 0 && !stat) return null;
+  if (item.points.length === 0) return null;
 
   return (
     <div className="bg-surface border-line mt-6 border px-5 pt-4 pb-5">
-      {stat ? (
-        <p className="tabular border-line mb-3.5 flex items-baseline gap-2.5 border-b pb-3.5">
-          <span className={`text-heading ${statClass(stat.direction)}`}>
-            {stat.value}
-          </span>
-          <span className="label">{stat.label}</span>
-        </p>
-      ) : null}
-      {item.points.length > 0 ? (
-        <>
-          <p className="label">인사이트</p>
-          <Points
-            points={item.points}
-            cards={item.cards}
-            markFirst={markFirst}
-          />
-        </>
-      ) : null}
+      <p className="label">인사이트</p>
+      <Points points={item.points} cards={item.cards} markFirst={markFirst} />
     </div>
   );
 }
@@ -269,11 +243,7 @@ function ItemContent({
     return (
       <>
         <BodyParagraphs item={item} />
-        <InsightsBox
-          item={item}
-          markFirst={markFirstInsight}
-          stat={item.stat}
-        />
+        <InsightsBox item={item} markFirst={markFirstInsight} />
       </>
     );
   }
@@ -321,8 +291,6 @@ function TopStory({
   control: ReadControl;
   onOpen: () => void;
 }) {
-  const stat = item.stat;
-
   const kicker = (
     <div className="flex items-center gap-3">
       <p className="label flex items-baseline gap-x-3">
@@ -362,8 +330,7 @@ function TopStory({
     );
   }
 
-  // 왼쪽은 서사(내용), 오른쪽 레일은 해석(숫자 + 인사이트).
-  // stat이 없는 날도 인사이트 박스가 레일을 채워 오른쪽이 비지 않는다.
+  // 왼쪽은 서사(내용), 오른쪽 레일은 해석(인사이트 박스).
   return (
     <section className="border-b-2 border-ink py-9 lg:py-11">
       <div className="lg:flex lg:items-start lg:gap-14">
@@ -374,7 +341,7 @@ function TopStory({
         </div>
 
         <aside className="mt-2 lg:mt-1 lg:w-80 lg:shrink-0 lg:border-l lg:border-line lg:pl-10">
-          <InsightsBox item={item} markFirst stat={stat} />
+          <InsightsBox item={item} markFirst />
         </aside>
       </div>
 
