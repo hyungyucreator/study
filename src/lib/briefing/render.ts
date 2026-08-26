@@ -2,11 +2,9 @@ import type { Gauge } from "@/lib/macro";
 
 import { assetLabel, directionLabel } from "./asset-classes";
 import {
-  isEconomySection,
   SECTIONS,
+  type BriefingItemPayload,
   type BriefingPayload,
-  type EconomyItem,
-  type PoliticsItem,
 } from "./schema";
 
 /**
@@ -62,38 +60,19 @@ function renderOutlook(payload: BriefingPayload): string {
     .join("\n");
 }
 
-function renderEconomy(items: EconomyItem[]): string {
+/** 항목 하나. 내용 문단 → 인사이트 불렛 → 출처 (2026-08-26 통합 골격). */
+function renderItems(items: BriefingItemPayload[]): string {
   return items
     .map((item, index) =>
       [
         `#### ${index + 1}. ${item.headline}`,
         "",
-        renderPoints(item.points),
+        item.body.join("\n\n"),
         "",
-        `- 예상 대비: ${item.surprise}`,
+        renderPoints(item.insights),
         `- 출처: [${item.source_name}](${item.source_url})`,
       ].join("\n"),
     )
-    .join("\n\n");
-}
-
-function renderPolitics(items: PoliticsItem[]): string {
-  return items
-    .map((item, index) => {
-      const lines = [
-        `#### ${index + 1}. ${item.headline}`,
-        "",
-        renderPoints(item.points),
-        "",
-        `- 맥락: ${item.context}`,
-        `- 지켜볼 것: ${item.outlook}`,
-      ];
-      if (item.investment_note) {
-        lines.push(`- 투자 함의: ${item.investment_note}`);
-      }
-      lines.push(`- 출처: [${item.source_name}](${item.source_url})`);
-      return lines.join("\n");
-    })
     .join("\n\n");
 }
 
@@ -108,10 +87,7 @@ export function renderBriefing(options: {
   const sections = SECTIONS.flatMap((section) => {
     const items = payload[section.key];
     if (!items || items.length === 0) return [];
-    const body = isEconomySection(section.key)
-      ? renderEconomy(items as EconomyItem[])
-      : renderPolitics(items as PoliticsItem[]);
-    return [`## ${section.label}`, "", body, ""];
+    return [`## ${section.label}`, "", renderItems(items), ""];
   });
 
   return [

@@ -148,12 +148,40 @@ function Points({
   );
 }
 
-/** 이슈와 출처를 한 줄로. 항목마다 라벨 행을 반복하면 표처럼 굳는다. */
+/**
+ * 출처 한 줄. 대표 매체와 같은 사건을 보도한 다른 매체, 속한 이슈까지 전부 여기.
+ * 항목마다 라벨 행을 반복하면 표처럼 굳는다.
+ */
 function Meta({ item }: { item: BriefingItem }) {
   return (
-    <p className="label mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+    <p className="label mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      <span className="text-faint">출처</span>
+      <a
+        href={item.sourceUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
+      >
+        {item.sourceName ?? "원문"}
+      </a>
+      {item.related.map((entry) => (
+        <a
+          key={entry.url}
+          href={entry.url}
+          target="_blank"
+          rel="noreferrer"
+          title={entry.title}
+          className="underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
+        >
+          {entry.source}
+        </a>
+      ))}
       {item.thread ? (
         <>
+          <span aria-hidden className="text-faint select-none">
+            ·
+          </span>
+          <span className="text-faint">이슈</span>
           <Link
             href={`/thread/${item.thread.id}`}
             className="underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
@@ -163,20 +191,77 @@ function Meta({ item }: { item: BriefingItem }) {
           {item.thread.entries > 1 ? (
             <span className="tabular">{item.thread.entries}번째 전개</span>
           ) : null}
-          <span aria-hidden className="text-faint select-none">
-            ·
-          </span>
         </>
       ) : null}
-      <a
-        href={item.sourceUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
-      >
-        {item.sourceName ?? "원문"}
-      </a>
     </p>
+  );
+}
+
+/**
+ * 항목의 몸통. 내용(문장체 문단) → 인사이트(개조식 불렛) 순서다.
+ * 모든 항목이 같은 골격이라 화면도 같아진다.
+ * 옛 브리핑(body 없음)은 불렛 + 라벨 행으로 폴백한다.
+ */
+function ItemContent({
+  item,
+  markFirstInsight = false,
+}: {
+  item: BriefingItem;
+  /** 첫 인사이트에 형광펜. 오늘의 톱에서만. 화면에 형광펜은 한 곳뿐이다. */
+  markFirstInsight?: boolean;
+}) {
+  const surprise = informativeSurprise(item.surprise);
+
+  if (item.body.length > 0) {
+    return (
+      <>
+        <div className="mt-4 space-y-3.5">
+          {item.body.map((paragraph) => (
+            <p key={paragraph} className="text-body leading-[1.7]">
+              <WithTerms text={paragraph} cards={item.cards} />
+            </p>
+          ))}
+        </div>
+        {item.points.length > 0 ? (
+          <div className="mt-6">
+            <p className="label">인사이트</p>
+            <Points
+              points={item.points}
+              cards={item.cards}
+              markFirst={markFirstInsight}
+            />
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Points points={item.points} cards={item.cards} />
+      <div className="mt-4">
+        {surprise ? (
+          <Row label="예상 대비">
+            <WithTerms text={surprise} cards={item.cards} />
+          </Row>
+        ) : null}
+        {item.context ? (
+          <Row label="맥락">
+            <WithTerms text={item.context} cards={item.cards} />
+          </Row>
+        ) : null}
+        {item.outlook ? (
+          <Row label="지켜볼 것">
+            <WithTerms text={item.outlook} cards={item.cards} />
+          </Row>
+        ) : null}
+        {item.investmentNote ? (
+          <Row label="투자 함의">
+            <WithTerms text={item.investmentNote} cards={item.cards} />
+          </Row>
+        ) : null}
+      </div>
+    </>
   );
 }
 
@@ -195,7 +280,6 @@ function TopStory({
   onOpen: () => void;
 }) {
   const stat = item.stat;
-  const surprise = informativeSurprise(item.surprise);
 
   return (
     <section className="border-b-2 border-ink py-9 lg:py-11">
@@ -218,25 +302,7 @@ function TopStory({
             </button>
           </h2>
 
-          <Points points={item.points} cards={item.cards} markFirst />
-
-          <div className="mt-4">
-            {surprise ? (
-              <Row label="예상 대비">
-                <WithTerms text={surprise} cards={item.cards} />
-              </Row>
-            ) : null}
-            {item.context ? (
-              <Row label="맥락">
-                <WithTerms text={item.context} cards={item.cards} />
-              </Row>
-            ) : null}
-            {item.outlook ? (
-              <Row label="지켜볼 것">
-                <WithTerms text={item.outlook} cards={item.cards} />
-              </Row>
-            ) : null}
-          </div>
+          <ItemContent item={item} markFirstInsight />
 
           <Meta item={item} />
         </div>
@@ -344,7 +410,6 @@ function Reader({
 }) {
   const done = index >= items.length;
   const item = done ? null : items[index];
-  const surprise = item ? informativeSurprise(item.surprise) : null;
   const touchX = useRef<number | null>(null);
 
   useEffect(() => {
@@ -429,55 +494,7 @@ function Reader({
               </p>
             ) : null}
 
-            <Points
-              points={item.points}
-              cards={item.cards}
-              markFirst={item.top}
-            />
-
-            <div className="mt-5">
-              {surprise ? (
-                <Row label="예상 대비">
-                  <WithTerms text={surprise} cards={item.cards} />
-                </Row>
-              ) : null}
-              {item.context ? (
-                <Row label="맥락">
-                  <WithTerms text={item.context} cards={item.cards} />
-                </Row>
-              ) : null}
-              {item.outlook ? (
-                <Row label="지켜볼 것">
-                  <WithTerms text={item.outlook} cards={item.cards} />
-                </Row>
-              ) : null}
-              {item.investmentNote ? (
-                <Row label="투자 함의">
-                  <WithTerms text={item.investmentNote} cards={item.cards} />
-                </Row>
-              ) : null}
-            </div>
-
-            {item.related.length > 0 ? (
-              <div className="mt-6">
-                <p className="label">함께 보도</p>
-                <ul className="mt-2">
-                  {item.related.map((entry) => (
-                    <li key={entry.url} className="border-b border-line py-2.5 last:border-b-0">
-                      <a
-                        href={entry.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-small block hover:text-ink"
-                      >
-                        {entry.title}
-                      </a>
-                      <span className="label">{entry.source}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+            <ItemContent item={item} markFirstInsight={item.top} />
 
             <Meta item={item} />
           </div>

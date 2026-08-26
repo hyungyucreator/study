@@ -48,10 +48,17 @@ export type ThreadRef = {
   new_title?: string;
 };
 
-type BaseItem = {
+/**
+ * 항목 하나. 경제·정치 구분 없이 같은 골격이다 (2026-08-26 통합).
+ * 구조가 항목마다 다르면 화면이 항목마다 달라진다.
+ * 예상 대비·맥락·지켜볼 것은 전부 insights로 통합됐다.
+ */
+export type BriefingItemPayload = {
   headline: string;
-  /** 개조식 불렛. 이것이 본문이다. */
-  points: string[];
+  /** 내용. 문장체 문단 2~3개. 이것이 본문이다. */
+  body: string[];
+  /** 인사이트. 개조식 불렛 1~4개. 왜 중요한가, 무엇과 연결되나. */
+  insights: string[];
   /** 이 항목이 속한 이슈. 브리핑에 기억을 붙이는 장치다. */
   thread: ThreadRef;
   /** 초보자가 모를 만한 용어 0~3개. 개념 카드로 이어진다. */
@@ -60,27 +67,11 @@ type BaseItem = {
   source_name: string;
 };
 
-export type EconomyItem = BaseItem & {
-  /** 시장 예상 대비. 한 줄 명사구. */
-  surprise: string;
-};
-
-export type PoliticsItem = BaseItem & {
-  /** 왜 일어났고 무엇과 연결되나. 한 줄 명사구. */
-  context: string;
-  /** 다음에 지켜볼 것. 한 줄 명사구. */
-  outlook: string;
-  /** 실제로 있을 때만. 없으면 null. */
-  investment_note: string | null;
-};
-
-export type BriefingItemPayload = EconomyItem | PoliticsItem;
-
 export type BriefingPayload = {
-  kr_economy: EconomyItem[];
-  global_economy: EconomyItem[];
-  kr_politics: PoliticsItem[];
-  global_politics: PoliticsItem[];
+  kr_economy: BriefingItemPayload[];
+  global_economy: BriefingItemPayload[];
+  kr_politics: BriefingItemPayload[];
+  global_politics: BriefingItemPayload[];
   /** 브리핑 전체를 종합한 자산군 방향. 항목별로 흩어두지 않는다. */
   asset_outlook: AssetOutlook[];
   /** 오늘의 톱. 실린 항목 중 단 한 건. */
@@ -97,12 +88,21 @@ const headline = {
     "한 줄 제목. 20자 내외. 온점을 찍지 않는다. 기사 제목을 그대로 베끼지 말 것.",
 };
 
-const points = {
+const body = {
   type: "array",
-  minItems: 5,
-  maxItems: 8,
+  minItems: 2,
+  maxItems: 3,
   description:
-    "본문. 개조식 불렛 5~8개. 각 50자 이내. **온점을 찍지 않는다.** 숫자를 앞에 쓰고 명사구나 '~함'으로 끝낸다. 리드문과 함께 보도의 리드에 있는 구체 정보(숫자·기관·일정·인물·발언)를 빠짐없이 담는다. 좋은 예: '코스피 3.1% 하락, 2696선'. 나쁜 예: '코스피가 3.1% 떨어져 2696선까지 밀렸다.'",
+    "내용. 문장체 문단 2~3개, 각 2~4문장. 신문 스트레이트 기사처럼 사실을 서술한다. 제공된 본문·리드의 구체 정보(숫자·기관·일정·인물·발언·배경)를 빠뜨리지 말고 담아, 이것만 읽어도 사건이 이해되게 쓴다. 단문, 온점 사용, 경어체 금지. 첫 문단이 핵심 사건, 다음 문단이 배경과 반응이다.",
+  items: { type: "string" },
+};
+
+const insights = {
+  type: "array",
+  minItems: 1,
+  maxItems: 4,
+  description:
+    "인사이트. 개조식 불렛 1~4개, 각 50자 이내, 온점 없음. 이 사건이 왜 중요한가, 무엇과 연결되나, 다음 분기점은 무엇인가. 경제 항목은 시장 예상 대비를 **확인 가능할 때만** 포함한다(모르면 쓰지 않는다). 정치·사회 항목은 맥락과 지켜볼 것을 여기에 담는다. 내용의 사실을 되풀이하지 않는다. 내용에 없는 새 사실을 추가하지 않는다. 개별 종목 언급 금지.",
   items: { type: "string" },
 };
 
@@ -137,65 +137,24 @@ const terms = {
   items: { type: "string" },
 };
 
-const economyItem = {
+/** 항목 스키마. 경제·정치 공통이다. 섹션별 지침은 insights 설명과 시스템 프롬프트에 있다. */
+const item = {
   type: "object",
   properties: {
     headline,
-    points,
+    body,
+    insights,
     thread,
     terms,
-    surprise: {
-      type: "string",
-      description:
-        "시장 예상 대비. 한 줄 명사구, 온점 없음. '예상 부합', '예상 상회' 형태로 시작한다. 예상치를 알 수 없으면 '시장 예상치 확인 불가'라고만 쓴다. 지어내지 말 것.",
-    },
     source_url,
     source_name: { type: "string" },
   },
   required: [
     "headline",
-    "points",
+    "body",
+    "insights",
     "thread",
     "terms",
-    "surprise",
-    "source_url",
-    "source_name",
-  ],
-};
-
-const politicsItem = {
-  type: "object",
-  properties: {
-    headline,
-    points,
-    thread,
-    terms,
-    context: {
-      type: "string",
-      description:
-        "무엇의 연장선이고 무엇과 맞물리나. 한 줄 명사구, 온점 없음. 사실을 되풀이하지 말 것.",
-    },
-    outlook: {
-      type: "string",
-      description:
-        "다음에 지켜볼 대상. 명사구로만, 온점 없음. 예: '9월 미중 정상회담에서의 관세안 확정 여부'. 예언하지 말 것.",
-    },
-    investment_note: {
-      type: ["string", "null"],
-      description:
-        "투자 함의. 실제로 있을 때만 한 줄 명사구. 없으면 null. 억지 연결 금지.",
-    },
-    source_url,
-    source_name: { type: "string" },
-  },
-  required: [
-    "headline",
-    "points",
-    "thread",
-    "terms",
-    "context",
-    "outlook",
-    "investment_note",
     "source_url",
     "source_name",
   ],
@@ -279,19 +238,19 @@ export const BRIEFING_TOOL = {
     properties: {
       kr_economy: section(
         "국내 경제. 한국 시장, 한국 기업, 한국은행과 정부의 경제정책.",
-        economyItem,
+        item,
       ),
       global_economy: section(
         "국제 경제. 해외 시장, 연준, 국제 원자재와 통상.",
-        economyItem,
+        item,
       ),
       kr_politics: section(
         "국내 정치·사회. 국회, 정부, 사법, 노동, 교육, 국내 테크.",
-        politicsItem,
+        item,
       ),
       global_politics: section(
         "국제 정치·사회. 외교, 안보, 해외 정치, 국제 테크.",
-        politicsItem,
+        item,
       ),
       asset_outlook: assetOutlook,
       top,

@@ -22,11 +22,9 @@ import { refreshBrief } from "./thread-brief";
 import { BRIEFING_ASSET_VALUES } from "./asset-classes";
 import {
   BRIEFING_TOOL,
-  isEconomySection,
   SECTIONS,
+  type BriefingItemPayload,
   type BriefingPayload,
-  type EconomyItem,
-  type PoliticsItem,
 } from "./schema";
 
 export type GenerateResult = {
@@ -96,40 +94,17 @@ function validate(
   };
 
   for (const section of SECTIONS) {
-    const items = (payload[section.key] ?? []) as (
-      | EconomyItem
-      | PoliticsItem
-    )[];
+    const items = (payload[section.key] ?? []) as BriefingItemPayload[];
 
-    const cleaned = items.filter(keep).map((item) => ({
+    // 경제·정치 구분 없이 같은 골격이다 (2026-08-26 통합).
+    result[section.key] = items.filter(keep).map((item) => ({
       ...item,
       source_name: allowed.get(item.source_url)!.source,
       headline: trimPoint(item.headline ?? ""),
-      points: (item.points ?? []).map(trimPoint).filter(Boolean),
+      // 내용은 문장체라 온점을 떼지 않는다. 인사이트만 개조식 정리.
+      body: (item.body ?? []).map((text) => text.trim()).filter(Boolean),
+      insights: (item.insights ?? []).map(trimPoint).filter(Boolean),
     }));
-
-    if (isEconomySection(section.key)) {
-      result[section.key as "kr_economy" | "global_economy"] = cleaned.map(
-        (item) => {
-          const economy = item as EconomyItem;
-          return { ...economy, surprise: trimPoint(economy.surprise ?? "") };
-        },
-      );
-    } else {
-      result[section.key as "kr_politics" | "global_politics"] = cleaned.map(
-        (item) => {
-          const politics = item as PoliticsItem;
-          return {
-            ...politics,
-            context: trimPoint(politics.context ?? ""),
-            outlook: trimPoint(politics.outlook ?? ""),
-            investment_note: politics.investment_note?.trim()
-              ? trimPoint(politics.investment_note)
-              : null,
-          };
-        },
-      );
-    }
   }
 
   // 자산군 종합은 브리핑 단위라 섹션 루프 밖에서 정리한다.
@@ -348,7 +323,7 @@ export async function generateBriefing(
   // 이슈 배정을 실제 스레드 id로 바꾼다. 없으면 만들고, 비슷하면 기존 것에 붙인다.
   const knownIds = new Set(openThreads.map((thread) => thread.id));
   const assignments = SECTIONS.flatMap((section) =>
-    (payload[section.key] as (EconomyItem | PoliticsItem)[]).map((item) => ({
+    (payload[section.key] as BriefingItemPayload[]).map((item) => ({
       key: item.source_url,
       assignment: item.thread ?? {},
       date,
@@ -359,7 +334,7 @@ export async function generateBriefing(
   // 새로 만든 스레드는 과거 기사를 붙여 타임라인의 시작점을 만든다.
   let created = 0;
   for (const section of SECTIONS) {
-    for (const item of payload[section.key] as (EconomyItem | PoliticsItem)[]) {
+    for (const item of payload[section.key] as BriefingItemPayload[]) {
       const thread = threadMap.get(item.source_url);
       if (!thread || knownIds.has(thread.id)) continue;
       knownIds.add(thread.id);
@@ -375,7 +350,7 @@ export async function generateBriefing(
 
   // 용어 카드를 확보한다. 없는 것만 한 번의 호출로 만든다.
   const allTerms = SECTIONS.flatMap((section) =>
-    (payload[section.key] as (EconomyItem | PoliticsItem)[]).flatMap(
+    (payload[section.key] as BriefingItemPayload[]).flatMap(
       (item) => item.terms ?? [],
     ),
   );
@@ -384,47 +359,32 @@ export async function generateBriefing(
 
   // position은 섹션별 100번대로 나눈다. 정렬 순서가 곧 섹션 순서다.
   const rows = SECTIONS.flatMap((section, sectionIndex) =>
-    (payload[section.key] as (EconomyItem | PoliticsItem)[]).map(
-      (item, index) => {
-        const economy = isEconomySection(section.key);
-        const asEconomy = item as EconomyItem;
-        const asPolitics = item as PoliticsItem;
-
-        return {
-          briefing_id: briefingId,
-          raw_news_id: allowed.get(item.source_url)?.id ?? null,
-          section: section.key,
-          thread_id: threadMap.get(item.source_url)?.id ?? null,
-          terms: item.terms ?? [],
-          headline: item.headline,
-          points: item.points,
-          // fact는 not null이다. 불렛을 줄바꿈으로 이어 붙여 채운다.
-          fact: item.points.join("\n"),
-          surprise: economy ? asEconomy.surprise : null,
-          implication_json: {
-            ...(economy
-              ? {
-                  section: section.key,
-                  source_name: item.source_name,
-                }
-              : {
-                  section: section.key,
-                  context: asPolitics.context,
-                  outlook: asPolitics.outlook,
-                  investment_note: asPolitics.investment_note,
-                  source_name: item.source_name,
-                }),
-            // 오늘의 톱 표시. 별도 컬럼 대신 여기 둔다. 하루 한 건뿐이다.
-            ...(payload.top.source_url === item.source_url
-              ? { top: true, top_stat: payload.top.stat }
-              : {}),
-            related: relatedOf(item.source_url),
-          },
-          source_url: item.source_url,
-          position: sectionIndex * 100 + index,
-        };
+    (payload[section.key] as BriefingItemPayload[]).map((item, index) => ({
+      briefing_id: briefingId,
+      raw_news_id: allowed.get(item.source_url)?.id ?? null,
+      section: section.key,
+      thread_id: threadMap.get(item.source_url)?.id ?? null,
+      terms: item.terms ?? [],
+      headline: item.headline,
+      // points 컬럼에는 인사이트를 둔다 (2026-08-26 내용·인사이트 개편).
+      points: item.insights,
+      // fact는 not null이다. 내용 문단을 이어 붙여 채운다.
+      fact: item.body.join("\n\n"),
+      surprise: null,
+      implication_json: {
+        section: section.key,
+        source_name: item.source_name,
+        // 내용은 여기. 옛 행(body 없음)은 화면이 points 불렛으로 폴백한다.
+        body: item.body,
+        // 오늘의 톱 표시. 별도 컬럼 대신 여기 둔다. 하루 한 건뿐이다.
+        ...(payload.top.source_url === item.source_url
+          ? { top: true, top_stat: payload.top.stat }
+          : {}),
+        related: relatedOf(item.source_url),
       },
-    ),
+      source_url: item.source_url,
+      position: sectionIndex * 100 + index,
+    })),
   );
 
   if (rows.length > 0) {
@@ -438,7 +398,7 @@ export async function generateBriefing(
   // 전개 횟수와 최근 상태를 갱신한다. 요약은 그 이슈의 첫 항목 헤드라인을 쓴다.
   await touchThreads(
     SECTIONS.flatMap((section) =>
-      (payload[section.key] as (EconomyItem | PoliticsItem)[]).flatMap(
+      (payload[section.key] as BriefingItemPayload[]).flatMap(
         (item) => {
           const thread = threadMap.get(item.source_url);
           return thread ? [{ id: thread.id, date, summary: item.headline }] : [];

@@ -35,7 +35,9 @@ export type RelatedNews = {
 
 export type BriefingItem = {
   headline: string | null;
-  /** 개조식 불렛. 이것이 본문이다. */
+  /** 내용. 문장체 문단 (2026-08-26 개편). 옛 브리핑은 비어 있다. */
+  body: string[];
+  /** 인사이트 불렛. 옛 브리핑에서는 개조식 본문이 여기 온다. */
   points: string[];
   section: SectionKey;
   sourceUrl: string;
@@ -101,6 +103,7 @@ type NewsRow = {
     top?: boolean;
     top_stat?: TopStat | null;
     related?: RelatedNews[];
+    body?: string[];
   } | null;
 };
 
@@ -131,6 +134,7 @@ function toItem(
 
   return {
     headline: row.headline,
+    body: Array.isArray(meta.body) ? meta.body.filter(Boolean) : [],
     points,
     section: sectionOf(row),
     sourceUrl: row.source_url,
